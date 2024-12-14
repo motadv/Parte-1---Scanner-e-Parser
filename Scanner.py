@@ -116,7 +116,7 @@ def parseProgram(program) -> List[Tuple[str, str]]:
     Parses a program from a string.
     Returns a list of tokens where each token is the [word, type].
     :param string: The string to parse.
-    :return: True if the string is a valid program, False otherwise.
+    :return: The list of tokens sequentially. Throws an exception if a token is not recognized.
     """
 
     tokenList = []
