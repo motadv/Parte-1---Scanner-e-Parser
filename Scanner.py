@@ -136,6 +136,9 @@ def parseProgram(program) -> List[Tuple[str, str]]:
             tokenList.append((word, "identifier"))
         elif isIntegerNumber(word):
             tokenList.append((word, "number"))
+        else:
+            raise Exception(
+                f"Não foi possível interpretar um token no programa: {word}")
 
     return tokenList
 
