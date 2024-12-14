@@ -176,6 +176,7 @@ class Parser:
     parser: list[str]
     start: str
     terminal_list: set[str]
+    table: dict[str, dict[str, list[list[str]]]]
 
     def __init__(
         self,
@@ -200,6 +201,9 @@ class Parser:
         """
 
         first_set = {token: set() for token in self.ebnf.keys()}
+
+        for terminal in self.terminal_list:
+            first_set[terminal] = {terminal}
 
         def derives_epsilon(token: str) -> bool:
             """
@@ -285,6 +289,20 @@ class Parser:
                             trailer = {token}
 
         self.follow = follow_set
+
+    def create_table(self) -> None:
+        # EBNF: A -> Epsilon = A contains []
+        # First: Epsilon = None
+
+        rows = self.ebnf.keys()
+        columns = self.terminal_list
+        for row in rows:
+            for column in columns:
+                self.table[row][column] = []
+            for derivation in self.ebnf[row]:
+                if len(derivation) > 0:
+                    firsts = self.first[derivation[0]]
+                    # TODO: add derivations to table based on First (depends on Epsilon) and Follow
 
 
 parser = Parser(
