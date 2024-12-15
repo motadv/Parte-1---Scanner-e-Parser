@@ -1,6 +1,10 @@
 import json
 import pandas as pd
 
+import anytree as at
+import anytree.exporter as exporter
+import subprocess
+
 EBNF = {
     "<PROG>": [
         ["<MAIN>", "<LCLASSE>"]
@@ -157,13 +161,14 @@ TERMINAL_LIST = {
 }
 
 BASE_CHAR = "$"
+EMPTY_CHAR = "ε"
 
 
 class Token:
     type_: str
     value: str
 
-    def __init__(self, type_: str, value: str) -> None:
+    def __init__(self, value: str, type_: str) -> None:
         self.type_ = type_
         self.value = value
 
@@ -182,7 +187,13 @@ class Node:
         self.children = children
 
     def __repr__(self) -> str:
-        return f"Node({self.token} -> {self.children})"
+        return f"Node({self.token})"
+
+    def to_tree(self, level: int = 0):
+        text = "\t" * level + self.__repr__()
+        for child in self.children:
+            text += "\n" + child.to_tree(level + 1)
+        return text
 
 
 class Parser:
@@ -206,8 +217,8 @@ class Parser:
         self.terminal_list = terminal_list
         self.start = start
 
-        self.input_ = [*input_, BASE_CHAR]
-        self.parser = [self.start, BASE_CHAR]
+        self.input_ = [*input_, Token(BASE_CHAR, BASE_CHAR)]
+        self.parser = [self.start, Token(BASE_CHAR, BASE_CHAR)]
 
         self.create_first()
         self.create_follow()
@@ -317,9 +328,23 @@ class Parser:
             changed = False
             for non_terminal, productions in self.ebnf.items():
                 for production in productions:
+                    # trailer = follow_set[non_terminal].copy()
+
+                    # for token in reversed(production):
+                    #     if token in self.ebnf:
+                    #         changed |= add_to_follow(token, trailer)
+
+                    #         if None in self.first[token]:
+                    #             trailer.update(self.first[token] - {None})
+                    #         else:
+                    #             trailer = self.first[token]
+                    #     else:
+                    #         trailer = {token}
+
                     for i, token in enumerate(production):
                         if token in self.ebnf:
-                            # Add the first of the next token to the follow of the current token except for epsilon
+                            # Add the first of the next token to the follow of the current token
+                            # except for epsilon
                             if i < len(production) - 1:
                                 changed |= add_to_follow(
                                     token, self.subset_first(
@@ -351,23 +376,75 @@ class Parser:
                         A_alpha)
                     if None in first_of_alpha:
                         for a in self.follow[A]:
-                            if A_alpha not in table[A][a]:
+                            if (A_alpha not in table[A][a]):
                                 table[A][a].append(
                                     A_alpha)
 
         self.table = table
 
     def execute(self) -> Node:
-        # TODO: execute first node recursion
-        pass
+        """
+        Start of the parser stack reading.
+        """
+        return self.read()
 
-    def read(self, node: Node) -> Node:
-        # TODO: read single node
-        pass
+    def read(self, level: int = 0) -> Node:
+        """
+        Creates the parsing tree by reading the input and the parser stacks.
+        """
+        current_symbol = self.parser.pop(0)
+        current_input = self.input_[0].type_
+        current_value = self.input_[0].value
+
+        # If symbol is the stack base
+        if current_symbol == BASE_CHAR:
+            if current_input == BASE_CHAR:
+                return Node(Token("SUCCESS", "Finished parsing"))
+            else:
+                return Node(Token("ERROR", "Input not fully consumed"))
+
+        # If symbol is terminal
+        if current_symbol in self.terminal_list:
+            # If symbol matches input
+            if current_symbol == current_input:
+                self.input_.pop(0)
+                return Node(Token(current_value, current_symbol))
+            else:
+                return Node(Token("ERROR", f"Expected '{current_symbol}', found '{current_input}'"))
+
+        # If symbol is non-terminal
+        if current_symbol in self.ebnf:
+            derivations = self.table[current_symbol][current_input]
+
+            if not derivations:
+                return Node(Token("ERROR", f"No production for '{current_symbol}' with input '{current_input}'"))
+
+            # If EBNF is not LL(1)
+            if len(derivations) > 1:
+                return Node(
+                    Token("ERROR", f"Multiple derivations of '{current_symbol}' for input '{current_input}'"))
+
+            production = derivations[0][1]
+            self.parser = production + self.parser
+
+            # Create non-terminal node
+            node = Node(Token(current_symbol, current_symbol))
+            node.children = [self.read(level + 1) for _ in production]
+            return node
+
+        return Node(Token("ERROR", f"Símbolo desconhecido: '{current_symbol}'"))
+
+
+def create_graph(node: Node, parent: Node = None) -> at.Node:
+    graph_node = at.Node(node, parent)
+    for child in node.children:
+        create_graph(child, graph_node)
+    return graph_node
 
 
 with open("output.txt", "r") as f:
     tokens = [Token(*line.strip().split(" | ")) for line in f]
+
 
 parser = Parser(
     ebnf=EBNF,
@@ -375,6 +452,19 @@ parser = Parser(
     terminal_list=TERMINAL_LIST,
     input_=tokens
 )
+
+result = parser.read()
+
+# # Create graph
+# graph = create_graph(result)
+#
+# for pre, fill, node in at.RenderTree(graph):
+#     print("%s%s" % (pre, node.name))
+#
+# exporter.UniqueDotExporter(graph).to_dotfile("graph.dot")
+# subprocess.run(["dot", "graph.dot", "-Tpdf", "-o", "graph.pdf"], check=True)
+
+
 
 # for non_terminal, row in parser.table.items():
 #     for terminal, productions in row.items():
