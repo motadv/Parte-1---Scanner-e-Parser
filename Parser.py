@@ -13,36 +13,36 @@ TERMINAL_LIST = getTerminalList()
 BASE_CHAR = "$"
 
 
-EBNF = {
-    "<EXP>": [
-        ["<TERM>", "<EXP_>"]
-    ],
-    "<EXP_>": [
-        ["<ADDOP>", "<TERM>", "<EXP_>"],
-        []
-    ],
-    "<ADDOP>": [
-        ["+"],
-        ["-"]
-    ],
-    "<TERM>": [
-        ["<FACTOR>", "<TERM_>"]
-    ],
-    "<TERM_>": [
-        ["<MULOP>", "<FACTOR>", "<TERM_>"],
-        []
-    ],
-    "<MULOP>": [
-        ["*"],
-    ],
-    "<FACTOR>": [
-        ["(", "<EXP>", ")"],
-        ["number"]
-    ]
-}
-TERMINAL_LIST = {
-    "+", "-", "*", "(", ")", "number"
-}
+# EBNF = {
+#     "<EXP>": [
+#         ["<TERM>", "<EXP_>"]
+#     ],
+#     "<EXP_>": [
+#         ["<ADDOP>", "<TERM>", "<EXP_>"],
+#         []
+#     ],
+#     "<ADDOP>": [
+#         ["+"],
+#         ["-"]
+#     ],
+#     "<TERM>": [
+#         ["<FACTOR>", "<TERM_>"]
+#     ],
+#     "<TERM_>": [
+#         ["<MULOP>", "<FACTOR>", "<TERM_>"],
+#         []
+#     ],
+#     "<MULOP>": [
+#         ["*"],
+#     ],
+#     "<FACTOR>": [
+#         ["(", "<EXP>", ")"],
+#         ["number"]
+#     ]
+# }
+# TERMINAL_LIST = {
+#     "+", "-", "*", "(", ")", "number"
+# }
 
 EMPTY_CHAR = "ε"
 
@@ -50,12 +50,16 @@ EMPTY_CHAR = "ε"
 class Token:
     type_: str
     value: str
+    terminal: bool
 
-    def __init__(self, value: str, type_: str) -> None:
+    def __init__(self, value: str, type_: str, terminal: bool = False) -> None:
         self.type_ = type_
         self.value = value
+        self.terminal = terminal
 
     def __repr__(self) -> str:
+        if self.terminal:
+            return f"{self.value}"
         return f"{self.type_}, {self.value}"
 
 
@@ -297,31 +301,31 @@ class Parser:
         """
         return self.read()
 
-    def read(self, level: int = 0) -> Node:
+    def read(self, level: int = 0, add_to_graph: bool = True) -> Node:
         """
         Creates the parsing tree by reading the input and the parser stacks.
         """
-        current_parser = self.parser[0]
+        current_parser = self.parser.pop(0)
         current_input = self.input_[0].type_
         current_value = self.input_[0].value
 
         # If symbol is the stack base
         if current_parser == BASE_CHAR:
             if current_input == BASE_CHAR:
-                return Node(Token("SUCCESS", "Finished parsing"))
+                return Node(Token("Finished parsing", "SUCCESS"))
             else:
-                return Node(Token("ERROR", "Input not fully consumed"))
+                return Node(Token("Input not fully consumed", "ERROR"))
 
         # If symbol is terminal
         if current_parser in self.terminal_list:
             # If symbol matches input
             if current_parser == current_input:
-                self.parser.pop(0)
                 self.input_.pop(0)
+                if current_value == current_input:
+                    return Node(Token(current_value, current_parser, True))
                 return Node(Token(current_value, current_parser))
             else:
-                self.parser.pop(0)
-                return Node(Token("ERROR", f"Expected '{current_parser}', found '{current_input}'"))
+                return Node(Token(f"Expected '{current_parser}', found '{current_input}'", "ERROR"))
 
         # If symbol is non-terminal
         if current_parser in self.ebnf:
@@ -329,25 +333,26 @@ class Parser:
 
             # If EBNF is not LL(1)
             if len(derivations) > 1:
-                self.parser.pop(0)
-                return Node(Token("ERROR", f"Multiple derivations of '{current_parser}' for input '{current_input}'"))
+                return Node(Token(f"Multiple derivations of '{current_parser}' for input '{current_input}'", "ERROR"))
 
             if not derivations:
-                self.parser.pop(0)
-                return Node(Token("ERROR", f"No production for '{current_parser}' with input '{current_input}'"))
+                return Node(Token(f"No production for '{current_parser}' with input '{current_input}'", "ERROR"))
 
             if derivations[0][0] == "ERROR":
                 node = Node(Token(current_parser, current_parser))
                 child = Node(Token("", ""))
                 if derivations[0][1][0] == "DESEMPILHA":
-                    self.parser.pop(0)
-                    child = Node(Token("ERROR", f"DESEMPILHA"))
+                    child = Node(Token(f"DESEMPILHA", "DESEMPILHA", True))
                 elif derivations[0][1][0] == "AVANÇA":
+                    self.parser.insert(0, current_parser)
                     self.input_.pop(0)
-                    child = Node(Token("ERROR", f"AVANÇA"))
+                    child = Node(Token(current_value, "AVANÇA"))
+                    child.children = [self.read(level + 1, False)]
                 else:
-                    child = Node(Token("ERROR", f"UNKNOWN ERROR: {derivations[0][1]}"))
+                    child = Node(Token(f"UNKNOWN ERROR: {derivations[0][1]}", "ERROR"))
                 node.children = [child]
+                if not add_to_graph:
+                    node = child
                 return node
 
             production = derivations[0][1]
@@ -356,10 +361,15 @@ class Parser:
             # Create non-terminal node
             node = Node(Token(current_parser, current_parser))
             node.children = [self.read(level + 1) for _ in production]
-            self.parser.pop(0)
+
+            # If production is epsilon, return epsilon node
+            if len(production) == 0:
+                print("NO PRODUCTION TERM_")
+                node.children = [Node(Token(EMPTY_CHAR, EMPTY_CHAR, True))]
+
             return node
 
-        return Node(Token("ERROR", f"UNKNOWN SYMBOL: '{current_parser}'"))
+        return Node(Token(f"UNKNOWN SYMBOL: '{current_parser}'", "ERROR"))
 
 
 def create_graph(node: Node, parent: Node = None) -> at.Node:
@@ -373,13 +383,21 @@ with open("output.txt", "r") as f:
     tokens = [Token(*line.strip().split(" | ")) for line in f]
 
 # Create input for the example: (2 + *)
-tokens = [
-    Token("(", "("),
-    Token("2", "number"),
-    Token("+", "+"),
-    Token("*", "*"),
-    Token(")", ")"),
-]
+# tokens = [
+#     Token("(", "("),
+#     Token("2", "number"),
+#     Token("+", "+"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token("*", "*"),
+#     Token(")", ")"),
+# ]
 
 parser = Parser(
     ebnf=EBNF,
