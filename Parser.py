@@ -3,42 +3,46 @@ import json
 import pandas as pd
 from Gramatica import getGrammar, getTerminalList
 
+import anytree as at
+import anytree.exporter as exporter
+import subprocess
+
 EBNF = getGrammar()
 TERMINAL_LIST = getTerminalList()
 
 BASE_CHAR = "$"
 
 
-# EBNF = {
-#     "<EXP>": [
-#         ["<TERM>", "<EXP_>"]
-#     ],
-#     "<EXP_>": [
-#         ["<ADDOP>", "<TERM>", "<EXP_>"],
-#         []
-#     ],
-#     "<ADDOP>": [
-#         ["+"],
-#         ["-"]
-#     ],
-#     "<TERM>": [
-#         ["<FACTOR>", "<TERM_>"]
-#     ],
-#     "<TERM_>": [
-#         ["<MULOP>", "<FACTOR>", "<TERM_>"],
-#         []
-#     ],
-#     "<MULOP>": [
-#         ["*"],
-#     ],
-#     "<FACTOR>": [
-#         ["(", "<EXP>", ")"],
-#         ["number"]
-#     ]
-# }
-# TERMINAL_LIST = {
-#     "+", "-", "*", "(", ")", "number"
-# }
+EBNF = {
+    "<EXP>": [
+        ["<TERM>", "<EXP_>"]
+    ],
+    "<EXP_>": [
+        ["<ADDOP>", "<TERM>", "<EXP_>"],
+        []
+    ],
+    "<ADDOP>": [
+        ["+"],
+        ["-"]
+    ],
+    "<TERM>": [
+        ["<FACTOR>", "<TERM_>"]
+    ],
+    "<TERM_>": [
+        ["<MULOP>", "<FACTOR>", "<TERM_>"],
+        []
+    ],
+    "<MULOP>": [
+        ["*"],
+    ],
+    "<FACTOR>": [
+        ["(", "<EXP>", ")"],
+        ["number"]
+    ]
+}
+TERMINAL_LIST = {
+    "+", "-", "*", "(", ")", "number"
+}
 
 EMPTY_CHAR = "ε"
 
@@ -250,7 +254,7 @@ class Parser:
                                 changed |= add_to_follow(
                                     token, follow_set[non_terminal]
                                 )
-
+                                
         self.follow = follow_set
 
     def create_table(self) -> None:
@@ -272,6 +276,18 @@ class Parser:
                         if (A_alpha not in table[A][a]):
                             table[A][a].append(
                                 A_alpha)
+
+        # Create error detection for table
+        # Iterate through each cell for each row and check if there are no productions
+        # If thats the case, if the colum is in the follow set of the row or if its the BASECHAR column, add a DESEMPILHA
+        # If the column is not BASECHAR nor in the follow set, add an AVANÇA
+        for non_terminal, row in table.items():
+            for terminal, productions in row.items():
+                if len(productions) == 0:
+                    if terminal in self.follow[non_terminal] or terminal == BASE_CHAR:
+                        table[non_terminal][terminal].append(("ERROR", ["DESEMPILHA"]))
+                    else:
+                        table[non_terminal][terminal].append(("ERROR", ["AVANÇA"]))
 
         self.table = table
 
@@ -338,10 +354,17 @@ def create_graph(node: Node, parent: Node = None) -> at.Node:
 with open("output.txt", "r") as f:
     tokens = [Token(*line.strip().split(" | ")) for line in f]
 
+# Create input for the example: (2 + *)
+tokens = [
+    Token("(", "("),
+    Token("2", "number"),
+    Token("+", "+"),
+    Token("*", "*"),
+    Token(")", ")"),
+]
 
 parser = Parser(
     ebnf=EBNF,
-    start=EBNF.keys().__iter__().__next__(),
     start=EBNF.keys().__iter__().__next__(),
     terminal_list=TERMINAL_LIST,
     input_=tokens
@@ -349,29 +372,29 @@ parser = Parser(
 
 result = parser.read()
 
-# # Create graph
-# graph = create_graph(result)
-#
-# for pre, fill, node in at.RenderTree(graph):
-#     print("%s%s" % (pre, node.name))
-#
-# exporter.UniqueDotExporter(graph).to_dotfile("graph.dot")
-# subprocess.run(["dot", "graph.dot", "-Tpdf", "-o", "graph.pdf"], check=True)
+# Create graph
+graph = create_graph(result)
+
+for pre, fill, node in at.RenderTree(graph):
+    print("%s%s" % (pre, node.name))
+
+exporter.UniqueDotExporter(graph).to_dotfile("graph.dot")
+subprocess.run(["dot", "graph.dot", "-Tpdf", "-o", "graph.pdf"], check=True)
 
 
 
-# for non_terminal, row in parser.table.items():
-#     for terminal, productions in row.items():
-#         if len(productions) > 1:
-#             print(
-#                 f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
-#
-# df = pd.DataFrame(parser.table).T
-# df = df.map(lambda cell: ', '.join(
-#     [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
-# df.to_excel("parsing_table.xlsx", index=True)
-#
-# with open("first_set.json", "w") as f:
-#     json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
-# with open("follow_set.json", "w") as f:
-#     json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
+for non_terminal, row in parser.table.items():
+    for terminal, productions in row.items():
+        if len(productions) > 1:
+            print(
+                f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
+
+df = pd.DataFrame(parser.table).T
+df = df.map(lambda cell: ', '.join(
+    [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
+df.to_excel("parsing_table.xlsx", index=True)
+
+with open("first_set.json", "w") as f:
+    json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
+with open("follow_set.json", "w") as f:
+    json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
