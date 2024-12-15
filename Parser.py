@@ -56,7 +56,7 @@ class Token:
         self.value = value
 
     def __repr__(self) -> str:
-        return f"Token({self.type_}, {self.value})"
+        return f"{self.type_}, {self.value}"
 
 
 class Node:
@@ -70,7 +70,7 @@ class Node:
         self.children = children
 
     def __repr__(self) -> str:
-        return f"Node({self.token})"
+        return f"{self.token}"
 
     def to_tree(self, level: int = 0):
         text = "\t" * level + self.__repr__()
@@ -301,47 +301,65 @@ class Parser:
         """
         Creates the parsing tree by reading the input and the parser stacks.
         """
-        current_symbol = self.parser.pop(0)
+        current_parser = self.parser[0]
         current_input = self.input_[0].type_
         current_value = self.input_[0].value
 
         # If symbol is the stack base
-        if current_symbol == BASE_CHAR:
+        if current_parser == BASE_CHAR:
             if current_input == BASE_CHAR:
                 return Node(Token("SUCCESS", "Finished parsing"))
             else:
                 return Node(Token("ERROR", "Input not fully consumed"))
 
         # If symbol is terminal
-        if current_symbol in self.terminal_list:
+        if current_parser in self.terminal_list:
             # If symbol matches input
-            if current_symbol == current_input:
+            if current_parser == current_input:
+                self.parser.pop(0)
                 self.input_.pop(0)
-                return Node(Token(current_value, current_symbol))
+                return Node(Token(current_value, current_parser))
             else:
-                return Node(Token("ERROR", f"Expected '{current_symbol}', found '{current_input}'"))
+                self.parser.pop(0)
+                return Node(Token("ERROR", f"Expected '{current_parser}', found '{current_input}'"))
 
         # If symbol is non-terminal
-        if current_symbol in self.ebnf:
-            derivations = self.table[current_symbol][current_input]
-
-            if not derivations:
-                return Node(Token("ERROR", f"No production for '{current_symbol}' with input '{current_input}'"))
+        if current_parser in self.ebnf:
+            derivations = self.table[current_parser][current_input]
 
             # If EBNF is not LL(1)
             if len(derivations) > 1:
-                return Node(
-                    Token("ERROR", f"Multiple derivations of '{current_symbol}' for input '{current_input}'"))
+                self.parser.pop(0)
+                return Node(Token("ERROR", f"Multiple derivations of '{current_parser}' for input '{current_input}'"))
+
+            if not derivations:
+                self.parser.pop(0)
+                return Node(Token("ERROR", f"No production for '{current_parser}' with input '{current_input}'"))
+
+            if derivations[0][0] == "ERROR":
+                node = Node(Token(current_parser, current_parser))
+                child = Node(Token("", ""))
+                if derivations[0][1][0] == "DESEMPILHA":
+                    self.parser.pop(0)
+                    child = Node(Token("ERROR", f"DESEMPILHA"))
+                elif derivations[0][1][0] == "AVANÇA":
+                    self.input_.pop(0)
+                    child = Node(Token("ERROR", f"AVANÇA"))
+                else:
+                    child = Node(Token("ERROR", f"UNKNOWN ERROR: {derivations[0][1]}"))
+                node.children = [child]
+                return node
 
             production = derivations[0][1]
             self.parser = production + self.parser
 
             # Create non-terminal node
-            node = Node(Token(current_symbol, current_symbol))
+            node = Node(Token(current_parser, current_parser))
             node.children = [self.read(level + 1) for _ in production]
+            self.parser.pop(0)
             return node
 
-        return Node(Token("ERROR", f"Símbolo desconhecido: '{current_symbol}'"))
+        return Node(Token("ERROR", f"UNKNOWN SYMBOL: '{current_parser}'"))
 
 
 def create_graph(node: Node, parent: Node = None) -> at.Node:
@@ -381,20 +399,18 @@ for pre, fill, node in at.RenderTree(graph):
 exporter.UniqueDotExporter(graph).to_dotfile("graph.dot")
 subprocess.run(["dot", "graph.dot", "-Tpdf", "-o", "graph.pdf"], check=True)
 
+# for non_terminal, row in parser.table.items():
+#     for terminal, productions in row.items():
+#         if len(productions) > 1:
+#             print(
+#                 f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
 
-
-for non_terminal, row in parser.table.items():
-    for terminal, productions in row.items():
-        if len(productions) > 1:
-            print(
-                f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
-
-df = pd.DataFrame(parser.table).T
-df = df.map(lambda cell: ', '.join(
-    [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
-df.to_excel("parsing_table.xlsx", index=True)
-
-with open("first_set.json", "w") as f:
-    json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
-with open("follow_set.json", "w") as f:
-    json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
+# df = pd.DataFrame(parser.table).T
+# df = df.map(lambda cell: ', '.join(
+#     [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
+# df.to_excel("parsing_table.xlsx", index=True)
+#
+# with open("first_set.json", "w") as f:
+#     json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
+# with open("follow_set.json", "w") as f:
+#     json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
