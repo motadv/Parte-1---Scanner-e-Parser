@@ -1,0 +1,4 @@
+# Ignore xlsx files and first_set.json / follow_set.json
+*.xlsx
+first_set.json
+follow_set.json

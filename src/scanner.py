@@ -1,6 +1,7 @@
 from typing import List, Tuple
 import re
 
+from src.options import Options
 
 blanks = [" ", "\n", "\t", "\r", "\f"]
 reserved_words = [
@@ -37,7 +38,7 @@ terminal_symbols = [
 ]
 
 
-def isIdentifier(str) -> bool:
+def is_identifier(str) -> bool:
     """
     Checks if a string is an identifier.
     :param str: The string to check.
@@ -46,7 +47,7 @@ def isIdentifier(str) -> bool:
     return re.match(r"^[a-zA-Z][a-zA-Z0-9_]*$", str) is not None
 
 
-def isReservedWord(str) -> bool:
+def is_reserved_word(str) -> bool:
     """
     Checks if a string is a reserved word.
     :param str: The string to check.
@@ -55,7 +56,7 @@ def isReservedWord(str) -> bool:
     return str in reserved_words
 
 
-def parseToken(string) -> tuple[str, str]:
+def parse_token(string) -> tuple[str, str]:
     """
     Parses a token from a string.
     :param string: The string to parse.
@@ -88,7 +89,7 @@ def add_spaces(string) -> str:
     return string
 
 
-def isIntegerNumber(str) -> bool:
+def is_integer_number(str) -> bool:
     """
     Checks if a string is an integer number.
     :param str: The string to check.
@@ -111,7 +112,7 @@ def unify_println(string) -> str:
     return out_string
 
 
-def parseProgram(program) -> List[Tuple[str, str]]:
+def parse_program(program) -> List[Tuple[str, str]]:
     """
     Parses a program from a string.
     Returns a list of tokens where each token is the [word, type].
@@ -132,9 +133,9 @@ def parseProgram(program) -> List[Tuple[str, str]]:
             tokenList.append((word, word))
         elif word in terminal_symbols:
             tokenList.append((word, word))
-        elif isIdentifier(word):
+        elif is_identifier(word):
             tokenList.append((word, "identifier"))
-        elif isIntegerNumber(word):
+        elif is_integer_number(word):
             tokenList.append((word, "number"))
         else:
             raise Exception(
@@ -143,13 +144,15 @@ def parseProgram(program) -> List[Tuple[str, str]]:
     return tokenList
 
 
-token_list = []
+def scan(options: Options) -> None:
+    token_list = []
 
-# Abre o arquivo para leitura
-with open("program.java", "r") as f:
-    program = f.read()
-    tokenList = parseProgram(program)
+    # Abre o arquivo para leitura
+    with open(f"{options.files_dir}program.java", "r") as f:
+        program = f.read()
+        tokenList = parse_program(program)
 
-with open("output.txt", "w") as f:
-    for token in tokenList:
-        f.write(f"{token[0]} | {token[1]}\n")
+    with open(f"{options.files_dir}scan.txt", "w") as f:
+        for token in tokenList:
+            f.write(f"{token[0]} | {token[1]}\n")
+
