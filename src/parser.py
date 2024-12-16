@@ -1,64 +1,27 @@
-import csv
 import json
 import pandas as pd
-from Gramatica import getGrammar, getTerminalList
 
 import anytree as at
 import anytree.exporter as exporter
 import subprocess
 
-EBNF = getGrammar()
-TERMINAL_LIST = getTerminalList()
+from src.options import Options
+
 
 BASE_CHAR = "$"
-
-
-# EBNF = {
-#     "<EXP>": [
-#         ["<TERM>", "<EXP_>"]
-#     ],
-#     "<EXP_>": [
-#         ["<ADDOP>", "<TERM>", "<EXP_>"],
-#         []
-#     ],
-#     "<ADDOP>": [
-#         ["+"],
-#         ["-"]
-#     ],
-#     "<TERM>": [
-#         ["<FACTOR>", "<TERM_>"]
-#     ],
-#     "<TERM_>": [
-#         ["<MULOP>", "<FACTOR>", "<TERM_>"],
-#         []
-#     ],
-#     "<MULOP>": [
-#         ["*"],
-#     ],
-#     "<FACTOR>": [
-#         ["(", "<EXP>", ")"],
-#         ["number"]
-#     ]
-# }
-# TERMINAL_LIST = {
-#     "+", "-", "*", "(", ")", "number"
-# }
-
 EMPTY_CHAR = "ε"
 
 
 class Token:
     type_: str
     value: str
-    terminal: bool
 
-    def __init__(self, value: str, type_: str, terminal: bool = False) -> None:
+    def __init__(self, value: str, type_: str) -> None:
         self.type_ = type_
         self.value = value
-        self.terminal = terminal
 
     def __repr__(self) -> str:
-        if self.terminal:
+        if self.type_ == self.value:
             return f"{self.value}"
         return f"{self.type_}, {self.value}"
 
@@ -295,12 +258,6 @@ class Parser:
 
         self.table = table
 
-    def execute(self) -> Node:
-        """
-        Start of the parser stack reading.
-        """
-        return self.read()
-
     def read(self, level: int = 0, add_to_graph: bool = True) -> Node:
         """
         Creates the parsing tree by reading the input and the parser stacks.
@@ -322,10 +279,19 @@ class Parser:
             if current_parser == current_input:
                 self.input_.pop(0)
                 if current_value == current_input:
-                    return Node(Token(current_value, current_parser, True))
+                    return Node(Token(current_value, current_parser))
                 return Node(Token(current_value, current_parser))
             else:
-                return Node(Token(f"Expected '{current_parser}', found '{current_input}'", "ERROR"))
+                # Avança
+                node = Node(Token(current_parser, current_parser))
+                self.parser.insert(0, current_parser)
+                self.input_.pop(0)
+                child = Node(Token(current_value, "AVANÇA"))
+                child.children = [self.read(level + 1, False)]
+                node.children = [child]
+                if not add_to_graph:
+                    node = child
+                return node
 
         # If symbol is non-terminal
         if current_parser in self.ebnf:
@@ -342,7 +308,7 @@ class Parser:
                 node = Node(Token(current_parser, current_parser))
                 child = Node(Token("", ""))
                 if derivations[0][1][0] == "DESEMPILHA":
-                    child = Node(Token(f"DESEMPILHA", "DESEMPILHA", True))
+                    child = Node(Token(f"DESEMPILHA", "DESEMPILHA"))
                 elif derivations[0][1][0] == "AVANÇA":
                     self.parser.insert(0, current_parser)
                     self.input_.pop(0)
@@ -364,8 +330,7 @@ class Parser:
 
             # If production is epsilon, return epsilon node
             if len(production) == 0:
-                print("NO PRODUCTION TERM_")
-                node.children = [Node(Token(EMPTY_CHAR, EMPTY_CHAR, True))]
+                node.children = [Node(Token(EMPTY_CHAR, EMPTY_CHAR))]
 
             return node
 
@@ -374,61 +339,67 @@ class Parser:
 
 def create_graph(node: Node, parent: Node = None) -> at.Node:
     graph_node = at.Node(node, parent)
+    type_ = node.token.type_
+    if type_ in ["AVANÇA", "DESEMPILHA"]:
+        graph_node.color = "yellow"
+    elif type_ == "ERROR":
+        graph_node.color = "red"
+    else:
+        graph_node.color = "green"
+
     for child in node.children:
         create_graph(child, graph_node)
     return graph_node
 
 
-with open("output.txt", "r") as f:
-    tokens = [Token(*line.strip().split(" | ")) for line in f]
+def node_attr(node: at.Node) -> str:
+    return f'label="{node.name}" fillcolor="{node.color}" style="filled"'
 
-# Create input for the example: (2 + *)
-# tokens = [
-#     Token("(", "("),
-#     Token("2", "number"),
-#     Token("+", "+"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token("*", "*"),
-#     Token(")", ")"),
-# ]
 
-parser = Parser(
-    ebnf=EBNF,
-    start=EBNF.keys().__iter__().__next__(),
-    terminal_list=TERMINAL_LIST,
-    input_=tokens
-)
+def check_duplicate(parser: Parser) -> None:
+    for non_terminal, row in parser.table.items():
+        for terminal, productions in row.items():
+            if len(productions) > 1:
+                print(f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
 
-result = parser.read()
 
-# Create graph
-graph = create_graph(result)
+def parse(
+        options: Options,
+        ebnf: dict[str, list[list[str]]],
+        terminal_list: set[str]
+) -> None:
+    with open(f"{options.files_dir}scan.txt", "r") as f:
+        tokens = [Token(*line.strip().split(" | ")) for line in f]
 
-for pre, fill, node in at.RenderTree(graph):
-    print("%s%s" % (pre, node.name))
+    parser = Parser(
+        ebnf=ebnf,
+        start=ebnf.keys().__iter__().__next__(),
+        terminal_list=terminal_list,
+        input_=tokens
+    )
 
-exporter.UniqueDotExporter(graph).to_dotfile("graph.dot")
-subprocess.run(["dot", "graph.dot", "-Tpdf", "-o", "graph.pdf"], check=True)
+    result = parser.read()
 
-# for non_terminal, row in parser.table.items():
-#     for terminal, productions in row.items():
-#         if len(productions) > 1:
-#             print(
-#                 f"Cell [{non_terminal}, {terminal}] has more than one production: {productions}")
+    # Create graph
+    graph = create_graph(result)
+    for pre, fill, node in at.RenderTree(graph):
+        print("%s%s" % (pre, node.name))
 
-# df = pd.DataFrame(parser.table).T
-# df = df.map(lambda cell: ', '.join(
-#     [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
-# df.to_excel("parsing_table.xlsx", index=True)
-#
-# with open("first_set.json", "w") as f:
-#     json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
-# with open("follow_set.json", "w") as f:
-#     json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
+    if options.graph:
+        exporter.UniqueDotExporter(graph, nodeattrfunc=node_attr).to_dotfile(f"{options.files_dir}parsing_tree.dot")
+        subprocess.run(
+            ["dot", f"{options.files_dir}parsing_tree.dot", "-Tpdf", "-o", f"{options.files_dir}parsing_tree.pdf"],
+            check=True
+        )
+
+    if options.m_table:
+        df = pd.DataFrame(parser.table).T
+        df = df.map(lambda cell: ', '.join(
+            [f"{nt} -> {' '.join(prod)}" for nt, prod in cell]))
+        df.to_excel(f"{options.files_dir}parsing_table.xlsx", index=True)
+
+    if options.sets:
+        with open(f"{options.files_dir}first_set.json", "w") as f:
+            json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
+        with open(f"{options.files_dir}follow_set.json", "w") as f:
+            json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)

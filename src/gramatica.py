@@ -110,28 +110,29 @@ EBNF = {
         ["number"],
         ["null"],
         ["new", "<NEWEXP>"],
-        ["<PEXP>", "<SEXP_>"]
+        ["<PEXP>", "<SPEXP>"]
     ],
-    "<SEXP_>": [
-        [".", "length"],
+    "<PEXP>": [
+        ["identifier"],
+        ["this"],
+        ["(", "<EXP>", ")"]
+    ],
+    "<SPEXP>": [
+        [".", "<SPEXP_>"],
         ["[", "<EXP>", "]"],
         []
     ],
-    "<NEWEXP>": [
-        ["identifier", "(", ")", "<PEXP_1>"],
-        ["int", "[", "<EXP>", "]"]
+    "<SPEXP_>": [
+        ["identifier", "<SPEXP__>", "<SPEXP>"],
+        ["length"],
     ],
-    "<PEXP>": [
-        ["this"],
-        ["identifier"],
-        ["(", "<EXP>", ")"]        
-    ],
-    "<PEXP_1>": [
-        [".", "identifier", "<PEXP_2>"],
-    ],
-    "<PEXP_2>": [
+    "<SPEXP__>": [
         ["(", "<OEXPS>", ")"],
         []
+    ],
+    "<NEWEXP>": [
+        ["identifier", "(", ")", "<SPEXP>"],
+        ["int", "[", "<EXP>", "]"]
     ],
     
     "<EXPS>": [
@@ -154,9 +155,11 @@ TERMINAL_LIST = {
     "-", "*", "!", "true", "false", "number", "null", "new", ".", "length", "this", ",",
 }
 
+
 # Export the grammar and the terminal list
-def getGrammar():
+def get_grammar():
     return EBNF
 
-def getTerminalList():
+
+def get_terminal_list():
     return TERMINAL_LIST
