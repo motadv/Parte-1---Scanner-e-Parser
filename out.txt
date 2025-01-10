@@ -1,0 +1,109 @@
+<PROG>
+├── <MAIN>
+│   ├── class
+│   ├── identifier, Main
+│   ├── {
+│   ├── public
+│   ├── static
+│   ├── void
+│   ├── main
+│   ├── (
+│   ├── String
+│   ├── [
+│   ├── ]
+│   ├── identifier, args
+│   ├── )
+│   ├── {
+│   ├── <CMD>
+│   │   └── DESEMPILHA
+│   ├── }
+│   └── }
+└── <LCLASSE>
+    ├── <CLASSE>
+    │   ├── class
+    │   ├── identifier, A
+    │   ├── <OEXTEND>
+    │   │   └── ε
+    │   ├── {
+    │   ├── <LVAR>
+    │   │   └── ε
+    │   ├── <LMETODO>
+    │   │   ├── <METODO>
+    │   │   │   ├── public
+    │   │   │   ├── <TIPO>
+    │   │   │   │   └── identifier, A
+    │   │   │   ├── identifier, bar
+    │   │   │   ├── (
+    │   │   │   ├── <OPARAMS>
+    │   │   │   │   └── ε
+    │   │   │   ├── )
+    │   │   │   ├── {
+    │   │   │   ├── <LVAR>
+    │   │   │   │   ├── <VAR>
+    │   │   │   │   │   ├── <TIPO>
+    │   │   │   │   │   │   └── identifier, A
+    │   │   │   │   │   ├── identifier, a
+    │   │   │   │   │   └── ;
+    │   │   │   │   └── <LVAR>
+    │   │   │   │       └── ε
+    │   │   │   ├── {
+    │   │   │   ├── <LCMD>
+    │   │   │   │   └── ε
+    │   │   │   ├── }
+    │   │   │   ├── return
+    │   │   │   ├── <EXP>
+    │   │   │   │   ├── <REXP>
+    │   │   │   │   │   ├── <AEXP>
+    │   │   │   │   │   │   ├── <MEXP>
+    │   │   │   │   │   │   │   ├── <SEXP>
+    │   │   │   │   │   │   │   │   ├── <PEXP>
+    │   │   │   │   │   │   │   │   │   └── identifier, a
+    │   │   │   │   │   │   │   │   └── <SPEXP>
+    │   │   │   │   │   │   │   │       └── ε
+    │   │   │   │   │   │   │   └── <MEXP_>
+    │   │   │   │   │   │   │       └── ε
+    │   │   │   │   │   │   └── <AEXP_>
+    │   │   │   │   │   │       └── ε
+    │   │   │   │   │   └── <REXP_>
+    │   │   │   │   │       └── ε
+    │   │   │   │   └── <EXP_>
+    │   │   │   │       └── ε
+    │   │   │   ├── ;
+    │   │   │   └── }
+    │   │   └── <LMETODO>
+    │   │       └── ε
+    │   └── }
+    └── <LCLASSE>
+        └── ε
+Entering Scope:
+Entering Scope:
+Entering Scope:
+Exiting Scope:
+{
+}
+Exiting Scope:
+{
+a: {'type': 'A'}
+}
+Exiting Scope:
+{
+bar: {'type': 'A', 'params': {}, 'variables': {'a': {'type': 'A'}}}
+}
+{
+    "A": {
+        "type": "class",
+        "extends": null,
+        "variables": {},
+        "methods": {
+            "bar": {
+                "type": "A",
+                "params": {},
+                "variables": {
+                    "a": {
+                        "type": "A"
+                    }
+                }
+            }
+        }
+    }
+}

@@ -23,26 +23,16 @@
 class Main
 {
 	public static void main(String[] args) {
-        System.out.println(2);
 	}
 	
 }
 
 class A {
-    A a;
 
-    public int[] foo() {
-        {}
-        return 0;
+    public A bar() {
+        A a;
+        {
+        }
+        return a;
     }
 }
-
-class B {
-    C c;
-}
-
-class C {
-    A a;
-    B b;
-}
-	
