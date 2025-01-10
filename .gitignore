@@ -2,3 +2,5 @@
 *.xlsx
 first_set.json
 follow_set.json
+# Ignore all __pycache__ directories
+__pycache__/

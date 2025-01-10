@@ -46,6 +46,9 @@ class Node:
         return text
 
 
+
+
+
 class Parser:
     ebnf: dict[str, list[list[str]]]
     first: dict[str, set[str | None]]
@@ -367,7 +370,7 @@ def parse(
         options: Options,
         ebnf: dict[str, list[list[str]]],
         terminal_list: set[str]
-) -> None:
+) -> Node:
     with open(f"{options.files_dir}scan.txt", "r") as f:
         tokens = [Token(*line.strip().split(" | ")) for line in f]
 
@@ -403,3 +406,6 @@ def parse(
             json.dump({k: list(v) for k, v in parser.first.items()}, f, indent=4)
         with open(f"{options.files_dir}follow_set.json", "w") as f:
             json.dump({k: list(v) for k, v in parser.follow.items()}, f, indent=4)
+
+
+    return result
