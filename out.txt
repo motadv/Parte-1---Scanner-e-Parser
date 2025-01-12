@@ -15,7 +15,52 @@
 │   ├── )
 │   ├── {
 │   ├── <CMD>
-│   │   └── DESEMPILHA
+│   │   ├── System.out.println
+│   │   ├── (
+│   │   ├── <EXP>
+│   │   │   ├── <REXP>
+│   │   │   │   ├── <AEXP>
+│   │   │   │   │   ├── <MEXP>
+│   │   │   │   │   │   ├── <SEXP>
+│   │   │   │   │   │   │   └── number, 1
+│   │   │   │   │   │   └── <MEXP_>
+│   │   │   │   │   │       └── ε
+│   │   │   │   │   └── <AEXP_>
+│   │   │   │   │       ├── +
+│   │   │   │   │       ├── <MEXP>
+│   │   │   │   │       │   ├── <SEXP>
+│   │   │   │   │       │   │   └── number, 2
+│   │   │   │   │       │   └── <MEXP_>
+│   │   │   │   │       │       └── ε
+│   │   │   │   │       └── <AEXP_>
+│   │   │   │   │           ├── +
+│   │   │   │   │           ├── <MEXP>
+│   │   │   │   │           │   ├── <SEXP>
+│   │   │   │   │           │   │   └── number, 4
+│   │   │   │   │           │   └── <MEXP_>
+│   │   │   │   │           │       └── ε
+│   │   │   │   │           └── <AEXP_>
+│   │   │   │   │               ├── +
+│   │   │   │   │               ├── <MEXP>
+│   │   │   │   │               │   ├── <SEXP>
+│   │   │   │   │               │   │   └── number, 8
+│   │   │   │   │               │   └── <MEXP_>
+│   │   │   │   │               │       └── ε
+│   │   │   │   │               └── <AEXP_>
+│   │   │   │   │                   ├── +
+│   │   │   │   │                   ├── <MEXP>
+│   │   │   │   │                   │   ├── <SEXP>
+│   │   │   │   │                   │   │   └── number, 16
+│   │   │   │   │                   │   └── <MEXP_>
+│   │   │   │   │                   │       └── ε
+│   │   │   │   │                   └── <AEXP_>
+│   │   │   │   │                       └── ε
+│   │   │   │   └── <REXP_>
+│   │   │   │       └── ε
+│   │   │   └── <EXP_>
+│   │   │       └── ε
+│   │   ├── )
+│   │   └── ;
 │   ├── }
 │   └── }
 └── <LCLASSE>
@@ -26,29 +71,136 @@
     │   │   └── ε
     │   ├── {
     │   ├── <LVAR>
-    │   │   └── ε
+    │   │   ├── <VAR>
+    │   │   │   ├── <TIPO>
+    │   │   │   │   ├── int
+    │   │   │   │   └── <TIPO_>
+    │   │   │   │       └── ε
+    │   │   │   ├── identifier, num1
+    │   │   │   └── ;
+    │   │   └── <LVAR>
+    │   │       ├── <VAR>
+    │   │       │   ├── <TIPO>
+    │   │       │   │   ├── int
+    │   │       │   │   └── <TIPO_>
+    │   │       │   │       └── ε
+    │   │       │   ├── identifier, num2
+    │   │       │   └── ;
+    │   │       └── <LVAR>
+    │   │           ├── <VAR>
+    │   │           │   ├── <TIPO>
+    │   │           │   │   ├── int
+    │   │           │   │   └── <TIPO_>
+    │   │           │   │       └── ε
+    │   │           │   ├── identifier, num3
+    │   │           │   └── ;
+    │   │           └── <LVAR>
+    │   │               ├── <VAR>
+    │   │               │   ├── <TIPO>
+    │   │               │   │   ├── int
+    │   │               │   │   └── <TIPO_>
+    │   │               │   │       └── ε
+    │   │               │   ├── identifier, result
+    │   │               │   └── ;
+    │   │               └── <LVAR>
+    │   │                   └── ε
     │   ├── <LMETODO>
     │   │   ├── <METODO>
     │   │   │   ├── public
     │   │   │   ├── <TIPO>
-    │   │   │   │   └── identifier, A
-    │   │   │   ├── identifier, bar
+    │   │   │   │   ├── int
+    │   │   │   │   └── <TIPO_>
+    │   │   │   │       └── ε
+    │   │   │   ├── identifier, foo
     │   │   │   ├── (
     │   │   │   ├── <OPARAMS>
     │   │   │   │   └── ε
     │   │   │   ├── )
     │   │   │   ├── {
     │   │   │   ├── <LVAR>
-    │   │   │   │   ├── <VAR>
-    │   │   │   │   │   ├── <TIPO>
-    │   │   │   │   │   │   └── identifier, A
-    │   │   │   │   │   ├── identifier, a
-    │   │   │   │   │   └── ;
-    │   │   │   │   └── <LVAR>
-    │   │   │   │       └── ε
+    │   │   │   │   └── ε
     │   │   │   ├── {
     │   │   │   ├── <LCMD>
-    │   │   │   │   └── ε
+    │   │   │   │   ├── <CMD>
+    │   │   │   │   │   ├── identifier, num1
+    │   │   │   │   │   └── <CMDID>
+    │   │   │   │   │       ├── =
+    │   │   │   │   │       ├── <EXP>
+    │   │   │   │   │       │   ├── <REXP>
+    │   │   │   │   │       │   │   ├── <AEXP>
+    │   │   │   │   │       │   │   │   ├── <MEXP>
+    │   │   │   │   │       │   │   │   │   ├── <SEXP>
+    │   │   │   │   │       │   │   │   │   │   └── number, 1
+    │   │   │   │   │       │   │   │   │   └── <MEXP_>
+    │   │   │   │   │       │   │   │   │       └── ε
+    │   │   │   │   │       │   │   │   └── <AEXP_>
+    │   │   │   │   │       │   │   │       ├── +
+    │   │   │   │   │       │   │   │       ├── <MEXP>
+    │   │   │   │   │       │   │   │       │   ├── <SEXP>
+    │   │   │   │   │       │   │   │       │   │   ├── <PEXP>
+    │   │   │   │   │       │   │   │       │   │   │   ├── (
+    │   │   │   │   │       │   │   │       │   │   │   ├── <EXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   ├── <REXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   ├── <AEXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   ├── <MEXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   │   ├── <SEXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   │   │   └── number, 3
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   │   └── <MEXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   │       └── ε
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │   └── <AEXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       ├── -
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       ├── <MEXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       │   ├── <SEXP>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       │   │   └── number, 7
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       │   └── <MEXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       │       └── ε
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │       └── <AEXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │   │   │           └── ε
+    │   │   │   │   │       │   │   │       │   │   │   │   │   └── <REXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │   │       └── ε
+    │   │   │   │   │       │   │   │       │   │   │   │   └── <EXP_>
+    │   │   │   │   │       │   │   │       │   │   │   │       └── ε
+    │   │   │   │   │       │   │   │       │   │   │   └── )
+    │   │   │   │   │       │   │   │       │   │   └── <SPEXP>
+    │   │   │   │   │       │   │   │       │   │       └── ε
+    │   │   │   │   │       │   │   │       │   └── <MEXP_>
+    │   │   │   │   │       │   │   │       │       ├── *
+    │   │   │   │   │       │   │   │       │       ├── <SEXP>
+    │   │   │   │   │       │   │   │       │       │   └── number, 4
+    │   │   │   │   │       │   │   │       │       └── <MEXP_>
+    │   │   │   │   │       │   │   │       │           └── ε
+    │   │   │   │   │       │   │   │       └── <AEXP_>
+    │   │   │   │   │       │   │   │           └── ε
+    │   │   │   │   │       │   │   └── <REXP_>
+    │   │   │   │   │       │   │       └── ε
+    │   │   │   │   │       │   └── <EXP_>
+    │   │   │   │   │       │       └── ε
+    │   │   │   │   │       └── ;
+    │   │   │   │   └── <LCMD>
+    │   │   │   │       ├── <CMD>
+    │   │   │   │       │   ├── identifier, result
+    │   │   │   │       │   └── <CMDID>
+    │   │   │   │       │       ├── =
+    │   │   │   │       │       ├── <EXP>
+    │   │   │   │       │       │   ├── <REXP>
+    │   │   │   │       │       │   │   ├── <AEXP>
+    │   │   │   │       │       │   │   │   ├── <MEXP>
+    │   │   │   │       │       │   │   │   │   ├── <SEXP>
+    │   │   │   │       │       │   │   │   │   │   ├── <PEXP>
+    │   │   │   │       │       │   │   │   │   │   │   └── identifier, num1
+    │   │   │   │       │       │   │   │   │   │   └── <SPEXP>
+    │   │   │   │       │       │   │   │   │   │       └── ε
+    │   │   │   │       │       │   │   │   │   └── <MEXP_>
+    │   │   │   │       │       │   │   │   │       └── ε
+    │   │   │   │       │       │   │   │   └── <AEXP_>
+    │   │   │   │       │       │   │   │       └── ε
+    │   │   │   │       │       │   │   └── <REXP_>
+    │   │   │   │       │       │   │       └── ε
+    │   │   │   │       │       │   └── <EXP_>
+    │   │   │   │       │       │       └── ε
+    │   │   │   │       │       └── ;
+    │   │   │   │       └── <LCMD>
+    │   │   │   │           └── ε
     │   │   │   ├── }
     │   │   │   ├── return
     │   │   │   ├── <EXP>
@@ -57,7 +209,7 @@
     │   │   │   │   │   │   ├── <MEXP>
     │   │   │   │   │   │   │   ├── <SEXP>
     │   │   │   │   │   │   │   │   ├── <PEXP>
-    │   │   │   │   │   │   │   │   │   └── identifier, a
+    │   │   │   │   │   │   │   │   │   └── identifier, result
     │   │   │   │   │   │   │   │   └── <SPEXP>
     │   │   │   │   │   │   │   │       └── ε
     │   │   │   │   │   │   │   └── <MEXP_>
@@ -74,7 +226,140 @@
     │   │       └── ε
     │   └── }
     └── <LCLASSE>
-        └── ε
+        ├── <CLASSE>
+        │   ├── class
+        │   ├── identifier, B
+        │   ├── <OEXTEND>
+        │   │   └── ε
+        │   ├── {
+        │   ├── <LVAR>
+        │   │   ├── <VAR>
+        │   │   │   ├── <TIPO>
+        │   │   │   │   └── identifier, A
+        │   │   │   ├── identifier, a
+        │   │   │   └── ;
+        │   │   └── <LVAR>
+        │   │       ├── <VAR>
+        │   │       │   ├── <TIPO>
+        │   │       │   │   ├── int
+        │   │       │   │   └── <TIPO_>
+        │   │       │   │       └── ε
+        │   │       │   ├── identifier, returnVal
+        │   │       │   └── ;
+        │   │       └── <LVAR>
+        │   │           └── ε
+        │   ├── <LMETODO>
+        │   │   ├── <METODO>
+        │   │   │   ├── public
+        │   │   │   ├── <TIPO>
+        │   │   │   │   ├── int
+        │   │   │   │   └── <TIPO_>
+        │   │   │   │       └── ε
+        │   │   │   ├── identifier, foo
+        │   │   │   ├── (
+        │   │   │   ├── <OPARAMS>
+        │   │   │   │   └── ε
+        │   │   │   ├── )
+        │   │   │   ├── {
+        │   │   │   ├── <LVAR>
+        │   │   │   │   └── ε
+        │   │   │   ├── {
+        │   │   │   ├── <LCMD>
+        │   │   │   │   ├── <CMD>
+        │   │   │   │   │   ├── identifier, returnVal
+        │   │   │   │   │   └── <CMDID>
+        │   │   │   │   │       ├── =
+        │   │   │   │   │       ├── <EXP>
+        │   │   │   │   │       │   ├── <REXP>
+        │   │   │   │   │       │   │   ├── <AEXP>
+        │   │   │   │   │       │   │   │   ├── <MEXP>
+        │   │   │   │   │       │   │   │   │   ├── <SEXP>
+        │   │   │   │   │       │   │   │   │   │   └── number, 0
+        │   │   │   │   │       │   │   │   │   └── <MEXP_>
+        │   │   │   │   │       │   │   │   │       └── ε
+        │   │   │   │   │       │   │   │   └── <AEXP_>
+        │   │   │   │   │       │   │   │       └── ε
+        │   │   │   │   │       │   │   └── <REXP_>
+        │   │   │   │   │       │   │       └── ε
+        │   │   │   │   │       │   └── <EXP_>
+        │   │   │   │   │       │       └── ε
+        │   │   │   │   │       └── ;
+        │   │   │   │   └── <LCMD>
+        │   │   │   │       └── ε
+        │   │   │   ├── }
+        │   │   │   ├── return
+        │   │   │   ├── <EXP>
+        │   │   │   │   ├── <REXP>
+        │   │   │   │   │   ├── <AEXP>
+        │   │   │   │   │   │   ├── <MEXP>
+        │   │   │   │   │   │   │   ├── <SEXP>
+        │   │   │   │   │   │   │   │   ├── <PEXP>
+        │   │   │   │   │   │   │   │   │   └── identifier, returnVal
+        │   │   │   │   │   │   │   │   └── <SPEXP>
+        │   │   │   │   │   │   │   │       └── ε
+        │   │   │   │   │   │   │   └── <MEXP_>
+        │   │   │   │   │   │   │       └── ε
+        │   │   │   │   │   │   └── <AEXP_>
+        │   │   │   │   │   │       └── ε
+        │   │   │   │   │   └── <REXP_>
+        │   │   │   │   │       └── ε
+        │   │   │   │   └── <EXP_>
+        │   │   │   │       └── ε
+        │   │   │   ├── ;
+        │   │   │   └── }
+        │   │   └── <LMETODO>
+        │   │       └── ε
+        │   └── }
+        └── <LCLASSE>
+            ├── <CLASSE>
+            │   ├── class
+            │   ├── identifier, C
+            │   ├── <OEXTEND>
+            │   │   └── ε
+            │   ├── {
+            │   ├── <LVAR>
+            │   │   └── ε
+            │   ├── <LMETODO>
+            │   │   ├── <METODO>
+            │   │   │   ├── public
+            │   │   │   ├── <TIPO>
+            │   │   │   │   ├── int
+            │   │   │   │   └── <TIPO_>
+            │   │   │   │       └── ε
+            │   │   │   ├── identifier, foo
+            │   │   │   ├── (
+            │   │   │   ├── <OPARAMS>
+            │   │   │   │   └── ε
+            │   │   │   ├── )
+            │   │   │   ├── {
+            │   │   │   ├── <LVAR>
+            │   │   │   │   └── ε
+            │   │   │   ├── {
+            │   │   │   ├── <LCMD>
+            │   │   │   │   └── ε
+            │   │   │   ├── }
+            │   │   │   ├── return
+            │   │   │   ├── <EXP>
+            │   │   │   │   ├── <REXP>
+            │   │   │   │   │   ├── <AEXP>
+            │   │   │   │   │   │   ├── <MEXP>
+            │   │   │   │   │   │   │   ├── <SEXP>
+            │   │   │   │   │   │   │   │   └── number, 0
+            │   │   │   │   │   │   │   └── <MEXP_>
+            │   │   │   │   │   │   │       └── ε
+            │   │   │   │   │   │   └── <AEXP_>
+            │   │   │   │   │   │       └── ε
+            │   │   │   │   │   └── <REXP_>
+            │   │   │   │   │       └── ε
+            │   │   │   │   └── <EXP_>
+            │   │   │   │       └── ε
+            │   │   │   ├── ;
+            │   │   │   └── }
+            │   │   └── <LMETODO>
+            │   │       └── ε
+            │   └── }
+            └── <LCLASSE>
+                └── ε
 Entering Scope:
 Entering Scope:
 Entering Scope:
@@ -83,26 +368,110 @@ Exiting Scope:
 }
 Exiting Scope:
 {
+}
+Exiting Scope:
+{
+this: {'type': 'A'}
+num1: {'type': 'int'}
+num2: {'type': 'int'}
+num3: {'type': 'int'}
+result: {'type': 'int'}
+foo: {'type': 'int', 'params': {}, 'variables': {}}
+}
+Entering Scope:
+Entering Scope:
+Entering Scope:
+Exiting Scope:
+{
+}
+Exiting Scope:
+{
+}
+Exiting Scope:
+{
+this: {'type': 'B'}
 a: {'type': 'A'}
+returnVal: {'type': 'int'}
+foo: {'type': 'int', 'params': {}, 'variables': {}}
+}
+Entering Scope:
+Entering Scope:
+Entering Scope:
+Exiting Scope:
+{
 }
 Exiting Scope:
 {
-bar: {'type': 'A', 'params': {}, 'variables': {'a': {'type': 'A'}}}
+}
+Exiting Scope:
+{
+this: {'type': 'C'}
+foo: {'type': 'int', 'params': {}, 'variables': {}}
 }
 {
     "A": {
         "type": "class",
         "extends": null,
-        "variables": {},
+        "variables": {
+            "this": {
+                "type": "A"
+            },
+            "num1": {
+                "type": "int"
+            },
+            "num2": {
+                "type": "int"
+            },
+            "num3": {
+                "type": "int"
+            },
+            "result": {
+                "type": "int"
+            }
+        },
         "methods": {
-            "bar": {
-                "type": "A",
+            "foo": {
+                "type": "int",
                 "params": {},
-                "variables": {
-                    "a": {
-                        "type": "A"
-                    }
-                }
+                "variables": {}
+            }
+        }
+    },
+    "B": {
+        "type": "class",
+        "extends": null,
+        "variables": {
+            "this": {
+                "type": "B"
+            },
+            "a": {
+                "type": "A"
+            },
+            "returnVal": {
+                "type": "int"
+            }
+        },
+        "methods": {
+            "foo": {
+                "type": "int",
+                "params": {},
+                "variables": {}
+            }
+        }
+    },
+    "C": {
+        "type": "class",
+        "extends": null,
+        "variables": {
+            "this": {
+                "type": "C"
+            }
+        },
+        "methods": {
+            "foo": {
+                "type": "int",
+                "params": {},
+                "variables": {}
             }
         }
     }

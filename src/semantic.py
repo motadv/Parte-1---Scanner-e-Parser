@@ -54,7 +54,6 @@ class ScopeManager:
                 scope[name] = current_var_info
                 return
         self.scopes[-1][name] = var_info
-    
 
 
 class Semantic:
@@ -84,6 +83,11 @@ class Semantic:
                 "extends": cExtends,
                 "variables": {},
                 "methods": {}
+            }
+
+            # Toda classe deve ter em seu escopo de variaveis o atributo 'this' que é do tipo da própria classe
+            self.symbol_table[cIdentifier]["variables"]["this"] = {
+                "type": cIdentifier
             }
 
             # Scan variable declarations
@@ -193,7 +197,8 @@ class Semantic:
         # All classes with their variables and methods are now in the symbol table
         self.scan_declarations(program)
         scope_manager = ScopeManager(self.symbol_table)
-
+        
+        valid_types = ["int", "boolean", "int[]", *[k for k in self.symbol_table.keys()]]
 
         # region Semantic Analysis
 
@@ -213,14 +218,26 @@ class Semantic:
                 except Exception as e:
                     raise Exception(f"Class '{clsIdentifier}' is trying to extend undeclared class '{clsExtends}'") from e
                 for k, v in inherited["variables"].items():
+                    # Check if type is valid
+                    if v["type"] not in valid_types:
+                        raise Exception(f"Invalid type '{v['type']}' in inherited variable '{k}'")
                     scope_manager.add_variable(k, v)
                 for k, v in inherited["methods"].items():
+                    # Check if type is valid
+                    if v["type"] not in valid_types:
+                        raise Exception(f"Invalid type '{v['type']}' in inherited method '{k}'")
                     scope_manager.add_variable(k, v)
 
             # Add to class scope all of its variables and methods
             for k, v in self.symbol_table[clsIdentifier]["variables"].items():
+                # Check if type is valid
+                if v["type"] not in valid_types:
+                    raise Exception(f"Invalid type '{v['type']}' in variable '{k}'")
                 scope_manager.add_or_modify_variable(k, v)
             for k, v in self.symbol_table[clsIdentifier]["methods"].items():
+                # Check if type is valid
+                if v["type"] not in valid_types:
+                    raise Exception(f"Invalid type '{v['type']}' in method '{k}'")
                 scope_manager.add_or_modify_variable(k, v)
 
 
@@ -235,10 +252,16 @@ class Semantic:
 
                 # Add to method scope all of its parameters
                 for k, v in self.symbol_table[clsIdentifier]["methods"][methodIdentifier]["params"].items():
+                    # Check if type is valid
+                    if v["type"] not in valid_types:
+                        raise Exception(f"Invalid type '{v['type']}' in parameter '{k}'")
                     scope_manager.add_variable(k, v)
 
                 # Add to method scope all of its variables
                 for k, v in self.symbol_table[clsIdentifier]["methods"][methodIdentifier]["variables"].items():
+                    # Check if type is valid
+                    if v["type"] not in valid_types:
+                        raise Exception(f"Invalid type '{v['type']}' in variable '{k}'")
                     scope_manager.add_or_modify_variable(k, v)
 
                 # Analyze its commands
@@ -290,10 +313,10 @@ class Semantic:
                 # CMD -> while ( EXP ) CMD
                 
                 # Analyze expression inside while
-                self.analyze_expression(command.children[2], scope_manager)
+                self.analyze_expression(command.children[2], scope_manager) # EXP
                 # Analyze commands inside while scope
                 scope_manager.enter_scope()
-                self.analyze_command(command.children[4], scope_manager)
+                self.analyze_command(command.children[4], scope_manager) # CMD
                 scope_manager.exit_scope()
 
             elif command.children[0].token.value == "System.out.println":
@@ -346,31 +369,91 @@ class Semantic:
         else:
             raise Exception("Invalid command node")
         
-    def analyze_expression(self, expression: Node, scope_manager: ScopeManager):
+    def analyze_expression(self, expression: Node, scope_manager: ScopeManager, other_data = None):
         """
-        Only checks if variables used are already declared.
-        
-        No type checking or value attribution is done here.
-        
-        Supports:
-            EXP, EXP_, REXP, REXP_, AEXP, AEXP_, MEXP, MEXP_, SEXP
         """
         if expression.token.type_ == "<EXP>":
             # EXP -> REXP EXP_
-            self.analyze_expression(expression.children[0], scope_manager)
-            self.analyze_expression(expression.children[1], scope_manager)
+            # Retornamos o tipo e substituímos o valor e tipo do nó atual para pré calcular expressões entre constantes
+            
+            resultado_rexp = self.analyze_expression(expression.children[0], scope_manager) # REXP
+            resultado_exp_ = self.analyze_expression(expression.children[1], scope_manager) # EXP_
+
+            if resultado_exp_:
+                if resultado_exp.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):
+                    return {
+                        "type": "boolean",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                else:
+                    return {
+                        "type": "boolean",
+                        "value": resultado_rexp["value"] and resultado_exp_["value"]
+                    }
+            
+            return resultado_rexp
+
 
         elif expression.token.type_ == "<EXP_>":
             # EXP_ -> && REXP EXP_
             # EXP_ -> ε
+
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
-                self.analyze_expression(expression.children[2], scope_manager)
+                resultado_rexp = self.analyze_expression(expression.children[1], scope_manager) # REXP
+                resultado_exp_ = self.analyze_expression(expression.children[2], scope_manager) # EXP_
+
+                if resultado_exp_:
+                    if resultado_exp.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):
+                        return {
+                            "type": "boolean",
+                            "value": None,
+                            "has_identifier": True
+                        }
+                        
+                    else:
+                        return {
+                            "type": "boolean",
+                            "value": resultado_rexp["value"] and resultado_exp_["value"]
+                        }
+                
+                return resultado_rexp
+                
+            else:
+                return None
 
         elif expression.token.type_ == "<REXP>":
             # REXP -> AEXP REXP_
-            self.analyze_expression(expression.children[0], scope_manager)
-            self.analyze_expression(expression.children[1], scope_manager)
+            resultado_aexp = self.analyze_expression(expression.children[0], scope_manager) # AEXP
+            resultado_rexp_ = self.analyze_expression(expression.children[1], scope_manager) # REXP_
+
+            # resultado_rexp_ é None ou um dicionário com o tipo, valor e operador da expressão
+            if resultado_rexp_:
+                if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                    return {
+                        "type": "boolean",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                
+                
+                if resultado_rexp_["operator"] == "<":
+                    return {
+                        "type": "boolean",
+                        "value": resultado_aexp["value"] < resultado_rexp_["value"]
+                    }
+                elif resultado_rexp_["operator"] == "==":
+                    return {
+                        "type": "boolean",
+                        "value": resultado_aexp["value"] == resultado_rexp_["value"]
+                    }
+                elif resultado_rexp_["operator"] == "!=":
+                    return {
+                        "type": "boolean",
+                        "value": resultado_aexp["value"] != resultado_rexp_["value"]
+                    }
+                
+            return resultado_aexp
 
         elif expression.token.type_ == "<REXP_>":
             # REXP_ -> < AEXP REXP_
@@ -378,33 +461,157 @@ class Semantic:
             # REXP_ -> != AEXP REXP_
             # REXP_ -> ε
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
-                self.analyze_expression(expression.children[2], scope_manager)
+                resultado_aexp = self.analyze_expression(expression.children[1], scope_manager) # AEXP
+                resultado_rexp_ = self.analyze_expression(expression.children[2], scope_manager) # REXP_
+
+                this_operator = expression.children[0].token.value
+
+                if resultado_rexp_:
+                    if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                        return {
+                            "type": "boolean",
+                            "value": None,
+                            "has_identifier": True,
+                            "operator": this_operator
+                        }
+                        
+                    if resultado_rexp_["operator"] == "<":
+                        return {
+                            "type": "boolean",
+                            "value": resultado_aexp["value"] < resultado_rexp_["value"],
+                            "operator": this_operator
+                        }
+                    elif resultado_rexp_["operator"] == "==":
+                        return {
+                            "type": "boolean",
+                            "value": resultado_aexp["value"] == resultado_rexp_["value"],
+                            "operator": this_operator
+                        }
+                    elif resultado_rexp_["operator"] == "!=":
+                        return {
+                            "type": "boolean",
+                            "value": resultado_aexp["value"] != resultado_rexp_["value"],
+                            "operator": this_operator
+                        }
+                    
+                return resultado_aexp
+            else:
+                return None
 
         elif expression.token.type_ == "<AEXP>":
             # AEXP -> MEXP AEXP_
-            self.analyze_expression(expression.children[0], scope_manager)
-            self.analyze_expression(expression.children[1], scope_manager)
+            resultado_mexp = self.analyze_expression(expression.children[0], scope_manager) # MEXP
+            resultado_aexp_ = self.analyze_expression(expression.children[1], scope_manager) # AEXP_
+
+            if resultado_aexp_:
+                if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
+                    return {
+                        "type": "int",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                
+                if resultado_aexp_["operator"] == "+":
+                    return {
+                        "type": "int",
+                        "value": resultado_mexp["value"] + resultado_aexp_["value"]
+                    }
+                elif resultado_aexp_["operator"] == "-":
+                    return {
+                        "type": "int",
+                        "value": resultado_mexp["value"] - resultado_aexp_["value"]
+                    }
+                
+            return resultado_mexp
 
         elif expression.token.type_ == "<AEXP_>":
             # AEXP_ -> + MEXP AEXP_
             # AEXP_ -> - MEXP AEXP_
             # AEXP_ -> ε
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
-                self.analyze_expression(expression.children[2], scope_manager)
+                resultado_mexp  = self.analyze_expression(expression.children[1], scope_manager) # MEXP
+                resultado_aexp_  = self.analyze_expression(expression.children[2], scope_manager) # AEXP_
+
+                this_operator = expression.children[0].token.value
+
+                if resultado_aexp_:
+                    if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
+                        return {
+                            "type": "int",
+                            "value": None,
+                            "has_identifier": True,
+                            "operator": this_operator
+                        }
+                    if resultado_aexp_["operator"] == "+":
+                        return {
+                            "type": "int",
+                            "value": resultado_mexp["value"] + resultado_aexp_["value"],
+                            "operator": this_operator
+                        }
+                    elif resultado_aexp_["operator"] == "-":
+                        return {
+                            "type": "int",
+                            "value": resultado_mexp["value"] - resultado_aexp_["value"],
+                            "operator": this_operator
+                        }
+                
+                return {
+                    "type": "int",
+                    "value": resultado_mexp["value"],
+                    "operator": this_operator
+                }
+
+            else:
+                return None
 
         elif expression.token.type_ == "<MEXP>":
             # MEXP -> SEXP MEXP_
-            self.analyze_expression(expression.children[0], scope_manager)
-            self.analyze_expression(expression.children[1], scope_manager)
+            resultado_sexp = self.analyze_expression(expression.children[0], scope_manager) # SEXP
+            resultado_mexp_ = self.analyze_expression(expression.children[1], scope_manager) # MEXP_
+
+            if resultado_mexp_:
+                if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
+                    return {
+                        "type": "int",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                if resultado_mexp_["operator"] == "*":
+                    return {
+                        "type": "int",
+                        "value": resultado_sexp["value"] * resultado_mexp_["value"]
+                    }
+                
+            return resultado_sexp
 
         elif expression.token.type_ == "<MEXP_>":
             # MEXP_ -> * SEXP MEXP_
             # MEXP_ -> ε
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
-                self.analyze_expression(expression.children[2], scope_manager)
+                resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
+                resultado_mexp_ = self.analyze_expression(expression.children[2], scope_manager) # MEXP_
+
+                if resultado_mexp_:
+                    if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
+                        return {
+                            "type": "int",
+                            "value": None,
+                            "has_identifier": True
+                        }
+                    if resultado_mexp_["operator"] == "*":
+                        return {
+                            "type": "int",
+                            "value": resultado_sexp["value"] * resultado_mexp_["value"],
+                            "operator": "*"                            
+                        }
+                    
+                return {
+                    "type": "int",
+                    "value": resultado_sexp["value"],
+                    "operator": "*"
+                }
+            else:
+                return None
 
         elif expression.token.type_ == "<SEXP>":
             # SEXP -> ! SEXP
@@ -417,44 +624,110 @@ class Semantic:
             # SEXP -> PEXP SPEXP
             
             if expression.children[0].token.type_ == "!":
-                self.analyze_expression(expression.children[1], scope_manager)
+                resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
+                if resultado_sexp.get("has_identifier", False):
+                    return {
+                        "type": "boolean",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                    
+                return {
+                    "type": "boolean",
+                    "value": not resultado_sexp["value"]
+                }
+                
             elif expression.children[0].token.type_ == "-":
-                self.analyze_expression(expression.children[1], scope_manager)
+                resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
+                if resultado_sexp.get("has_identifier", False):
+                    return {
+                        "type": "int",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                return {
+                    "type": "int",
+                    "value": -resultado_sexp["value"]
+                }
+            
+            elif expression.children[0].token.type_ == "true":
+                return {
+                    "type": "boolean",
+                    "value": True
+                }
+                
+            elif expression.children[0].token.type_ == "false":
+                return {
+                    "type": "boolean",
+                    "value": False
+                }
+                
+            elif expression.children[0].token.type_ == "number":
+                return {
+                    "type": "int",
+                    "value": int(expression.children[0].token.value)
+                }
+                
+            elif expression.children[0].token.type_ == "null":
+                return {
+                    "type": "null",
+                    "value": None
+                }
+            
             elif expression.children[0].token.type_ == "new":
-                self.analyze_expression(expression.children[1], scope_manager)
-            elif expression.children[0].token.type_ == "<PEXP>":
-                scope_manager.enter_scope()
-                self.analyze_expression(expression.children[0], scope_manager)
-                self.analyze_expression(expression.children[1], scope_manager)
-                scope_manager.exit_scope()
+                resultado_newexp = self.analyze_expression(expression.children[1], scope_manager) # NEWEXP
+                # Resultado de NEWEXP é um dicionário com o tipo e valor do objeto instanciado e sempre tem has_identifier = True
+                return resultado_newexp
+             
+            elif expression.children[0].token.type_ == "<PEXP>":   
+                # Em um caso como id.attr, é preciso checar se o attr chamado faz parte da classe do id
+                # em um caso como id.metodo(), é preciso checar se o método existe e se os parâmetros passados são válidos
+                
+                # PEXP é um identificador, this ou uma expressão entre parênteses
+                resultado_pexp = self.analyze_expression(expression.children[0], scope_manager) # PEXP
+                resultado_spexp = self.analyze_expression(expression.children[1], scope_manager, resultado_pexp["type"]) # SPEXP
 
+                if resultado_spexp:
+                    return resultado_spexp
+
+                return resultado_pexp
 
         elif expression.token.type_ == "<PEXP>":
             # PEXP -> identifier
             # PEXP -> this
             # PEXP -> ( EXP )
             if expression.children[0].token.type_ == "identifier":
+                # Should return the identifier type so that SPEXP can check if the attribute or method exists
+                # Should not return types for pre-calculation if dealing with non-constant values
                 try:
                     variable_name = expression.children[0].token.value
                     variable_info = scope_manager.get_variable(variable_name)
 
-                    # Get attributes and methods of the variable if its a class
-                    if variable_info["type"] == "class":
-                        # Add class attributes and methods to the current scope
-                        for k, v in variable_info["variables"].items():
-                            scope_manager.add_variable(k, v)
-                        for k, v in variable_info["methods"].items():
-                            scope_manager.add_variable(k, v)
-
-                    #! TODO Implementar a ideia de abrir um escopo em SEXP, adicionar os atributos e metodos da classe em PEXP e fechar quando sair de SEXP
-
-
+                    return {
+                        "type": variable_info["type"],
+                        "value": None,
+                        "has_identifier": True
+                    }
                 except Exception as e:
                     raise Exception(f"Variable '{expression.children[0].token.value}' not declared") from e
+            
             elif expression.children[0].token.type_ == "this":
-                pass
+                # 'this' is always of the same type as the current class
+                # We are already adding 'this' to the class scope in the scan_declarations method
+                try:
+                    variable_info = scope_manager.get_variable("this")
+                    return {
+                        "type": variable_info["type"],
+                        "value": None,
+                        "has_identifier": True
+                    }
+
+                except Exception as e:
+                    raise Exception(f"Variable 'this' not accessible.") from e
+
             elif expression.children[0].token.type_ == "(":
-                self.analyze_expression(expression.children[1], scope_manager)
+                resultado_exp = self.analyze_expression(expression.children[1], scope_manager) # EXP
+                return resultado_exp
         
         elif expression.token.type_ == "<SPEXP>":
             # SPEXP -> . SPEXP_
@@ -462,72 +735,194 @@ class Semantic:
             # SPEXP -> [ EXP ]
                 # Esse caso é o de acessar um elemento de um array
             # SPEXP -> ε
-            if expression.children[0].token.type_ == ".":
-                scope_manager.enter_scope()
-                self.analyze_expression(expression.children[1], scope_manager) # SPEXP_
-                scope_manager.exit_scope()
-            elif expression.children[0].token.type_ == "[":
-                self.analyze_expression(expression.children[1], scope_manager)
 
+            # SPEXP só existe após um PEXP ou ao final de SPEXP_
+            #  então o other_data é o tipo do simbolo anterior
+            current_type = other_data
+            if expression.children[0].token.type_ == ".":
+
+                # Passar para o SPEXP_ o tipo da variável atual para que ele possa verificar se o método ou atributo existe
+                resultado_spexp_ = self.analyze_expression(expression.children[1], scope_manager, current_type) # SPEXP_
+
+                return resultado_spexp_
+
+            elif expression.children[0].token.type_ == "[":
+                # Não é possível acessar um elemento com [] de um tipo que não seja array
+                if current_type == "int[]":
+                    resultado_exp = self.analyze_expression(expression.children[1], scope_manager) # EXP
+                    if resultado_exp != "int":
+                        raise Exception(f"Array access with non-integer index, expected 'int' but got '{resultado_exp}'")
+                else:
+                    raise Exception(f"Type '{current_type}' is not an array")
+                
+                # Só temos arrays de inteiros, então se um array é acessado, o tipo do resultado é int
+                return {
+                    "type": "int",
+                    "value": None,
+                    "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
+                }
+            
+            else:
+                return None
 
         elif expression.token.type_ == "<SPEXP_>":
             # SPEXP_ -> identifier SPEXP__ SPEXP
             # SPEXP_ -> length
+
+            # Deve retornar o tipo do identificador ou int caso seja length
+
+            # other_data aqui é o tipo da variavel que está sendo acesdsada via id.attr ou id.metodo()
+            current_type = other_data
+
             if expression.children[0].token.type_ == "identifier":
                 try:
                     variable_name = expression.children[0].token.value
-                    scope_manager.get_variable(variable_name)
-
-                    # Get attributes and methods of the variable if its a class
-                    if variable_info["type"] == "class":
-                        # Add class attributes and methods to the current scope
-                        for k, v in variable_info["variables"].items():
-                            scope_manager.add_variable(k, v)
-                        for k, v in variable_info["methods"].items():
-                            scope_manager.add_variable(k, v)
-
+                    variable_info = scope_manager.get_variable(variable_name)
                 except Exception as e:
                     raise Exception(f"Variable '{expression.children[0].token.value}' not declared") from e
-                self.analyze_expression(expression.children[1], scope_manager)
-                self.analyze_expression(expression.children[2], scope_manager)
+
+                # Tente ver se o identificador está presente na symbol_table como um possível atributo ou método
+                if variable_name not in self.symbol_table[current_type]["variables"] and variable_name not in self.symbol_table[current_type]["methods"]:
+                    # Se não estiver, então é um erro
+                    raise Exception(f"Symbol '{variable_name}' is not an attribute or method of '{current_type}'")
+                
+                # Aqui sabemos que o identificador é um atributo ou método da variável atual
+                # Precisamos verificar qual o seu tipo para passarmos para SPEXP em children[2]
+                # Se for um metodo, precisamos passar para SPEXP__ em children[1] quais são os parametros aceitos
+                isMethod = variable_name in self.symbol_table[current_type]["methods"]
+                # Se for um atributo, passamos o tipo do atributo para SPEXP
+                isAttribute = variable_name in self.symbol_table[current_type]["variables"]
+
+                idenfitier_type = self.symbol_table[current_type]["methods"][variable_name]["type"] if isMethod else self.symbol_table[current_type]["variables"][variable_name]["type"]
+                method_params = self.symbol_table[current_type]["methods"][variable_name]["params"] if isMethod else None
+
+                resultado_spexp__ = self.analyze_expression(expression.children[1], scope_manager, method_params) # SPEXP__
+                resultado_spexp = self.analyze_expression(expression.children[2], scope_manager, idenfitier_type) # SPEXP
+
+                return {
+                    "type": idenfitier_type,
+                    "value": None,
+                    "has_identifier": True # Para indicar que é um atributo ou método acessado e não podemos pré calcular valores
+                }
+
             elif expression.children[0].token.value == "length":
-                pass
+                # Só é possível acessar o length de um array
+                if current_type != "int[]":
+                    raise Exception(f"Type '{current_type}' is not an array, cannot access 'length'")
+                
+                return {
+                    "type": "int",
+                    "value": None,
+                    "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
+                }
 
         elif expression.token.type_ == "<SPEXP__>":
             # SPEXP__ -> ( OEXPS )
-                # ! Extra de verificar os parametros passados para a chamada de métodos
             # SPEXP__ -> ε
+
+            # other_data aqui é o dicionário de parametros do método que está sendo chamado ou None se não for um método
+            current_params = other_data
+            # Transformar o dicionário de parametros em uma lista de tipos para comparar com os parametros passados
+            current_params = [v["type"] for v in current_params.values()] if current_params else None
+
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
+                self.analyze_expression(expression.children[1], scope_manager, current_params) # OEXPS
+                # Não há retorno para OEXPS
+                
+            else:
+                if current_params:
+                    raise Exception("Method called with too few parameters, missing parameters of types: " + ", ".join(current_params))
+                
+
+            return None # Não há retorno para SPEXP__
 
         elif expression.token.type_ == "<OEXPS>":
             # OEXPS -> EXPS
             # OEXPS -> ε
+
+            # other_data aqui é a lista de tipos dos parametros do método que está sendo chamado
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[0], scope_manager)
+                # Aqui garantimos que há pelo menos um parametro, pois EXPS não deriva epsilon
+                if not other_data:
+                    raise Exception("Method called with no parameters, but it requires at least one")
+
+                self.analyze_expression(expression.children[0], scope_manager, other_data) # EXPS
+                # Não há retorno para EXPS
+            
+            else:
+                if other_data:
+                    raise Exception("Method called with too few parameters, missing parameters of types: " + ", ".join(other_data))
+                
+            return None # Não há retorno para OEXPS
 
         elif expression.token.type_ == "<EXPS>":
             # EXPS -> EXP EXPS_
-            self.analyze_expression(expression.children[0], scope_manager)
-            self.analyze_expression(expression.children[1], scope_manager)
+
+            # other_data aqui é a lista de tipos dos parametros do método que está sendo chamado
+            # Devemos consumir o primeiro parametro e passar o restante para EXPS_
+            # Ao consumir o primeiro parametro, devemos verificar se ele é do tipo correto
+
+            if not other_data:
+                # Esgotaram os parametros que o método aceita mas ainda há parametros a serem passados
+                raise Exception("Method called with too many parameters")
+            
+            resultado_exp = self.analyze_expression(expression.children[0], scope_manager) # EXP
+            
+            if resultado_exp["type"] != other_data[0]:
+                raise Exception(f"Method called with parameter of wrong type, expected '{other_data[0]}' but got '{resultado_exp["type"]} '")
+            
+            self.analyze_expression(expression.children[1], scope_manager, other_data[1:]) # EXPS_
+            # Não há retorno para EXPS_
+            
+            return None
 
         elif expression.token.type_ == "<EXPS_>":
             # EXPS_ -> , EXPS
             # EXPS_ -> ε
+
+            # other_data aqui é a lista de tipos dos parametros do método que está sendo chamado
+            # Se EXPS_ deriva epsilon, então não há mais parametros a serem passados
             if expression.children[0].token.type_ != EMPTY_CHAR:
-                self.analyze_expression(expression.children[1], scope_manager)
+                self.analyze_expression(expression.children[1], scope_manager, other_data) # EXPS
+            else:
+                if other_data:
+                    raise Exception("Method called with too few parameters, missing parameters of types: " + ", ".join(other_data))
+
+            # Não há retorno para EXPS_
+            return None
 
         elif expression.token.type_ == "<NEWEXP>":
             # NEWEXP -> identifier ( ) SPEXP
             # NEWEXP -> int [ EXP ]
+
             if expression.children[0].token.type_ == "identifier":
-                try:
-                    scope_manager.get_variable(expression.children[0].token.value)
-                except Exception as e:
-                    raise Exception(f"Variable '{expression.children[0].token.value}' not declared") from e
-                self.analyze_expression(expression.children[3], scope_manager)
+                # Check if variable is a declared class in symbol table
+                is_valid_class = expression.children[0].token.value in self.symbol_table
+                if not is_valid_class:
+                    raise Exception(f"Cannot instantiate undeclared class '{expression.children[0].token.value}'")
+                
+                # Se o identificador é uma variável, então é um objeto instanciado
+                resultado_spexp = self.analyze_expression(expression.children[3], scope_manager) # SPEXP
+                
+                if resultado_spexp:
+                    return resultado_spexp
+                
+                return {
+                    "type": expression.children[0].token.value,
+                    "value": None,
+                    "has_identifier": True
+                }
+                
             elif expression.children[0].token.value == "int":
-                self.analyze_expression(expression.children[2], scope_manager)
+                resultado_exp = self.analyze_expression(expression.children[2], scope_manager)
+                if resultado_exp != "int":
+                    raise Exception("Array size must be an integer")
+                
+                return {
+                    "type": "int[]",
+                    "value": None,
+                    "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
+                }
 
         else:
             raise Exception("Invalid expression node")

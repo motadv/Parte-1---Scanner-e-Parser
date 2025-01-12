@@ -23,16 +23,43 @@
 class Main
 {
 	public static void main(String[] args) {
+        System.out.println(1 + 2 + 4 + 8 + 16);
 	}
 	
 }
 
 class A {
-
-    public A bar() {
-        A a;
+    int num1;
+    int num2;
+    int num3;
+    int result;
+    public int foo() {
         {
+            num1 = 1 + (3 - 7) * 4;
+            result = num1;
         }
-        return a;
+        return result;
+    }
+}
+
+
+class B {
+    A a;
+    int returnVal;
+
+
+
+    public int foo() {
+        {
+            returnVal = 0;
+        }
+        return returnVal;
+    }
+}
+
+class C {
+    public int foo() {
+        {}
+        return 0;
     }
 }
