@@ -11,7 +11,6 @@ class ScopeManager:
         self.scopes: list[dict[str, dict]] = [global_scope]
 
     def enter_scope(self, optional_variables: list[tuple[str, dict]] | None = None):
-        print("Entering Scope:")
         self.scopes.append({})
         if optional_variables:
             for var in optional_variables:
@@ -19,13 +18,6 @@ class ScopeManager:
 
     def exit_scope(self):
         if len(self.scopes) > 1:
-
-            # Print current scope
-            print("Exiting Scope:")
-            print("{")
-            for k, v in self.scopes[-1].items():
-                print(f"{k}: {v}")
-            print("}")
 
             self.scopes.pop()
         else:
