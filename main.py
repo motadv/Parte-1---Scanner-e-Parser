@@ -14,7 +14,7 @@ scan(options)
 sat = parse(options, get_grammar(), get_terminal_list())
 
 # symbol_table =get_symbol_table(sat)
-symbol_table = analyze_semantics(sat)
+symbol_table = analyze_semantics(options, sat)
 
 print(
     json.dumps(

@@ -29,6 +29,7 @@ class Token:
 class Node:
     token: Token
     children: list
+    result: str | None
 
     def __init__(self, token: Token, children=None):
         self.token = token
@@ -347,8 +348,14 @@ def create_graph(node: Node, parent: Node = None) -> at.Node:
         graph_node.color = "yellow"
     elif type_ == "ERROR":
         graph_node.color = "red"
+    elif type_ in ["<EXP>","<REXP>", "<AEXP>", "<MEXP>", "<SEXP>", "<PEXP>", "<SPEXP>", "<SPEXP_>", "<SPEXP__>", "<OEXPS>", "<EXPS>", "<EXPS_>", "<NEWEXP>"]:
+        graph_node.color = "lightblue"
+    elif type_ in ["number", "true", "false", "null"]:
+        graph_node.color = "lightgreen"
+    elif type_ in ["identifier", "this"]:
+        graph_node.color = "orange"
     else:
-        graph_node.color = "green"
+        graph_node.color = "white"
 
     for child in node.children:
         create_graph(child, graph_node)

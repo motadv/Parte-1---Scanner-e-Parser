@@ -1,4 +1,10 @@
-from src.parser import Node, EMPTY_CHAR
+from src.parser import Node, EMPTY_CHAR, Token
+
+import anytree as at
+import anytree.exporter as exporter
+import subprocess
+
+from src.options import Options
 
 class ScopeManager:
     def __init__(self, global_scope: dict[str, dict] = {}):
@@ -266,16 +272,45 @@ class Semantic:
 
                 # Analyze its commands
                 methodCmds = method.children[9] # LCMD
+                methodReturnExp = method.children[12] # RETURN
 
                 scope_manager.enter_scope() #* Entering LCMD scope
                 self.analyze_command(methodCmds, scope_manager)
                 scope_manager.exit_scope() #* Exiting LCMD scope
 
+                resultado_return = self.analyze_expression(methodReturnExp, scope_manager)
+                if resultado_return:
+                    # if resultado_return["type"] == "number", match with int
+                    # else, match with the type
+                    if resultado_return["type"] == "number":
+                        resultado_return["type"] = "int"
+                        
+                    if resultado_return["type"] != self.symbol_table[clsIdentifier]["methods"][methodIdentifier]["type"]:
+                        raise Exception(f"Invalid return type '{resultado_return['type']}' in method '{methodIdentifier}'")
+                
                 scope_manager.exit_scope() # *Exiting method scope
                 currentMethod = currentMethod.children[1]
             
             scope_manager.exit_scope()
             currentClass = currentClass.children[1]
+
+        # Analyze main class
+        mainClass = program.children[0]
+        scope_manager.enter_scope()
+        
+        # Add string[] args to main scope
+        str_args_identifier = mainClass.children[11]
+        scope_manager.add_variable(str_args_identifier, {
+            "type": "String[]",
+        })
+        
+        mainCmds = mainClass.children[14]
+        scope_manager.enter_scope()
+        self.analyze_command(mainCmds, scope_manager)
+        scope_manager.exit_scope()
+        
+        scope_manager.exit_scope()
+        
 
     def analyze_command(self, command: Node, scope_manager: ScopeManager):
         """
@@ -370,8 +405,6 @@ class Semantic:
             raise Exception("Invalid command node")
         
     def analyze_expression(self, expression: Node, scope_manager: ScopeManager, other_data = None):
-        """
-        """
         if expression.token.type_ == "<EXP>":
             # EXP -> REXP EXP_
             # Retornamos o tipo e substituímos o valor e tipo do nó atual para pré calcular expressões entre constantes
@@ -380,7 +413,21 @@ class Semantic:
             resultado_exp_ = self.analyze_expression(expression.children[1], scope_manager) # EXP_
 
             if resultado_exp_:
-                if resultado_exp.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):
+                # both sides must be boolean, otherwise we have an error
+                if resultado_rexp["type"] != "boolean" or resultado_exp_["type"] != "boolean":
+                    raise Exception("Invalid operation '&&' between non-boolean values")
+                
+                if resultado_exp_.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):
+                    
+                    # Simplify children to be just the REXP -> AEXP -> MEXP -> SEXP -> boolean and EXP_ -> ε
+                    val_node = Node(Token(str(None), "boolean"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    exp__node = Node(Token("<EXP_>", "<EXP_>"), [empty_node])
+                    
+                    expression.children = [constant_node, exp__node]
+                    
                     return {
                         "type": "boolean",
                         "value": None,
@@ -392,7 +439,24 @@ class Semantic:
                         "value": resultado_rexp["value"] and resultado_exp_["value"]
                     }
             
-            return resultado_rexp
+            else:
+                if resultado_rexp.get("has_identifier", False):
+                    return {
+                        "type": resultado_rexp["type"],
+                        "value": None,
+                        "has_identifier": True
+                    }
+                else:
+                    # Simplify children to be just the REXP -> AEXP -> MEXP -> SEXP -> boolean and EXP_ -> ε
+                    val_node = Node(Token(str(resultado_rexp["value"]), resultado_rexp["type"]))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    exp__node = Node(Token("<EXP_>", "<EXP_>"), [empty_node])
+                    
+                    expression.children = [constant_node, exp__node]
+                    
+                    return resultado_rexp
 
 
         elif expression.token.type_ == "<EXP_>":
@@ -404,7 +468,11 @@ class Semantic:
                 resultado_exp_ = self.analyze_expression(expression.children[2], scope_manager) # EXP_
 
                 if resultado_exp_:
-                    if resultado_exp.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):
+                    # both sides must be boolean, otherwise we have an error
+                    if resultado_rexp["type"] != "boolean" or resultado_exp_["type"] != "boolean":
+                        raise Exception("Invalid operation '&&' between non-boolean values")
+                    
+                    if resultado_exp_.get("has_identifier", False) or resultado_rexp.get("has_identifier", False):                        
                         return {
                             "type": "boolean",
                             "value": None,
@@ -412,12 +480,45 @@ class Semantic:
                         }
                         
                     else:
+                        # Simplify children to be just the REXP -> AEXP -> MEXP -> SEXP -> boolean and EXP_ -> ε
+                        operator_node = Node(Token("&&", "&&"))
+                        
+                        val_node = Node(Token(str(resultado_rexp["value"] and resultado_exp_["value"]), "boolean"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                        
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        exp__node = Node(Token("<EXP_>", "<EXP_>"), [empty_node])
+                        
+                        expression.children = [operator_node, constant_node, exp__node]
+                        
                         return {
                             "type": "boolean",
                             "value": resultado_rexp["value"] and resultado_exp_["value"]
                         }
-                
-                return resultado_rexp
+
+                else:
+                    if resultado_rexp.get("has_identifier", False):
+                        return {
+                            "type": resultado_rexp["type"],
+                            "value": None,
+                            "has_identifier": True,
+                            "operator": "&&"
+                        }
+                    else:
+                        # Simplify children to be just the REXP -> AEXP -> MEXP -> SEXP -> boolean and EXP_ -> ε
+                        val_node = Node(Token(str(resultado_rexp["value"]), resultado_rexp["type"]))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                        
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        exp__node = Node(Token("<EXP_>", "<EXP_>"), [empty_node])
+                        
+                        expression.children = [constant_node, exp__node]
+                        
+                        return {
+                            "type": resultado_rexp["type"],
+                            "value": resultado_rexp["value"],
+                            "operator": "&&"
+                        }
                 
             else:
                 return None
@@ -429,6 +530,13 @@ class Semantic:
 
             # resultado_rexp_ é None ou um dicionário com o tipo, valor e operador da expressão
             if resultado_rexp_:
+                if resultado_rexp_["operator"] == "<":
+                    if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                        raise Exception("Invalid operation '<' between non-int values")
+                else:
+                    if resultado_aexp["type"] != resultado_rexp_["type"]:
+                        raise Exception(f"Invalid operation '{resultado_rexp_["operator"]}' between different types")
+                    
                 if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                     return {
                         "type": "boolean",
@@ -438,22 +546,86 @@ class Semantic:
                 
                 
                 if resultado_rexp_["operator"] == "<":
+                    
+                    # both sides must be int, otherwise we have an error
+                    if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                        raise Exception("Invalid operation '<' between non-int values")
+                    
+                    # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                    operator_node = Node(Token("<", "<"))
+                    
+                    boolean_node = Node(Token(str(resultado_aexp["value"] < resultado_rexp_["value"]), "boolean"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                    
+                    expression.children = [operator_node, constant_node, rexp__node]                    
+                    
                     return {
                         "type": "boolean",
                         "value": resultado_aexp["value"] < resultado_rexp_["value"]
                     }
                 elif resultado_rexp_["operator"] == "==":
+                    
+                    # both sides must be of the same type, otherwise we have an error
+                    if resultado_aexp["type"] != resultado_rexp_["type"]:
+                        raise Exception("Invalid operation '==' between different types")
+                    
+                    # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                    operator_node = Node(Token("==", "=="))
+                    
+                    boolean_node = Node(Token(str(resultado_aexp["value"] == resultado_rexp_["value"]), "boolean"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                    
+                    expression.children = [operator_node, constant_node, rexp__node]
+                    
                     return {
                         "type": "boolean",
                         "value": resultado_aexp["value"] == resultado_rexp_["value"]
                     }
                 elif resultado_rexp_["operator"] == "!=":
+                    
+                    # both sides must be of the same type, otherwise we have an error
+                    if resultado_aexp["type"] != resultado_rexp_["type"]:
+                        raise Exception("Invalid operation '!=' between different types")
+                    
+                    # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                    operator_node = Node(Token("!=", "!="))
+                    
+                    boolean_node = Node(Token(str(resultado_aexp["value"] != resultado_rexp_["value"]), "boolean"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                    
+                    expression.children = [operator_node, constant_node, rexp__node]
+                    
                     return {
                         "type": "boolean",
                         "value": resultado_aexp["value"] != resultado_rexp_["value"]
                     }
                 
-            return resultado_aexp
+            if resultado_aexp.get("has_identifier", False):
+                return {
+                    "type": resultado_aexp["type"],
+                    "value": None,
+                    "has_identifier": True
+                }
+            else:
+                # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                val_node = Node(Token(str(resultado_aexp["value"]), resultado_aexp["type"]))
+                constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                
+                empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                
+                expression.children = [constant_node, rexp__node]
+                
+                return resultado_aexp
 
         elif expression.token.type_ == "<REXP_>":
             # REXP_ -> < AEXP REXP_
@@ -468,6 +640,13 @@ class Semantic:
 
                 if resultado_rexp_:
                     if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                        if resultado_rexp_["operator"] == "<":
+                            if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                                raise Exception("Invalid operation '<' between non-int values")
+                        else:
+                            if resultado_aexp["type"] != resultado_rexp_["type"]:
+                                raise Exception("Invalid operation '==' between different types")
+                            
                         return {
                             "type": "boolean",
                             "value": None,
@@ -476,25 +655,99 @@ class Semantic:
                         }
                         
                     if resultado_rexp_["operator"] == "<":
+                        
+                        # both sides must be int, otherwise we have an error
+                        if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                            raise Exception("Invalid operation '<' between non-int values")
+                        
+                        # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                        
+                        # Creating operator node
+                        operator_node = Node(Token("<", "<"))
+                        
+                        boolean_node = Node(Token(str(resultado_aexp["value"] < resultado_rexp_["value"]), "boolean"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+                        
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                        
+                        expression.children = [operator_node, constant_node, rexp__node]
+                        
                         return {
                             "type": "boolean",
                             "value": resultado_aexp["value"] < resultado_rexp_["value"],
                             "operator": this_operator
                         }
                     elif resultado_rexp_["operator"] == "==":
+                        
+                        # both sides must be of the same type, otherwise we have an error
+                        if resultado_aexp["type"] != resultado_rexp_["type"]:
+                            raise Exception("Invalid operation '==' between different types")
+                        
+                        
+                        # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                        operator_node = Node(Token("==", "=="))
+                        
+                        boolean_node = Node(Token(str(resultado_aexp["value"] == resultado_rexp_["value"]), "boolean"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+                        
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                        
+                        expression.children = [operator_node, constant_node, rexp__node]
+                        
                         return {
                             "type": "boolean",
                             "value": resultado_aexp["value"] == resultado_rexp_["value"],
                             "operator": this_operator
                         }
                     elif resultado_rexp_["operator"] == "!=":
+                        
+                        # both sides must be of the same type, otherwise we have an error
+                        if resultado_aexp["type"] != resultado_rexp_["type"]:
+                            raise Exception("Invalid operation '!=' between different types")
+                        
+                        # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                        operator_node = Node(Token("!=", "!="))
+                        
+                        boolean_node = Node(Token(str(resultado_aexp["value"] != resultado_rexp_["value"]), "boolean"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [boolean_node])
+
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))                        
+                        rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                        
+                        expression.children = [operator_node, constant_node, rexp__node]
+                        
                         return {
                             "type": "boolean",
                             "value": resultado_aexp["value"] != resultado_rexp_["value"],
                             "operator": this_operator
                         }
                     
-                return resultado_aexp
+                if resultado_aexp.get("has_identifier", False):
+                    return {
+                        "type": "boolean",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                else:
+                    # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
+                    operator_node = Node(Token(this_operator, this_operator))
+                    
+                    val_node = Node(Token(str(resultado_aexp["value"]), resultado_aexp["type"]))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    rexp__node = Node(Token("<REXP_>", "<REXP_>"), [empty_node])
+                    
+                    expression.children = [operator_node, constant_node, rexp__node]
+                    return {
+                        "type": resultado_aexp["type"],
+                        "value": resultado_aexp["value"],
+                        "has_identifier": False,
+                        "operator": this_operator
+                    }
+                    
             else:
                 return None
 
@@ -505,24 +758,75 @@ class Semantic:
 
             if resultado_aexp_:
                 if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
+                    #both sides must be int, otherwise we have an error
+                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
+                    
                     return {
-                        "type": "int",
+                        "type": "number",
                         "value": None,
                         "has_identifier": True
                     }
                 
                 if resultado_aexp_["operator"] == "+":
+                    
+                    # both sides must be int, otherwise we have an error
+                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        raise Exception("Invalid operation '+' between non-int values")
+                    
+                    # Simplify children to be just CONSTANT -> number and AEXP_ -> ε
+                    newValue = resultado_mexp["value"] + resultado_aexp_["value"]
+                    
+                    val_node = Node(Token(str(newValue), "number"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                    
+                    expression.children = [constant_node, aexp__node]
+                    
                     return {
-                        "type": "int",
+                        "type": "number",
                         "value": resultado_mexp["value"] + resultado_aexp_["value"]
                     }
                 elif resultado_aexp_["operator"] == "-":
+                    
+                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        raise Exception("Invalid operation '-' between non-int values")
+                    
+                    # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
+                    newValue = resultado_mexp["value"] - resultado_aexp_["value"]
+                    
+                    # Creating MEXP children
+                    val_node = Node(Token(str(newValue), "number"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    # Creating AEXP_ children
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                    
+                    # Setting new children
+                    expression.children = [constant_node, aexp__node]
                     return {
-                        "type": "int",
+                        "type": "number",
                         "value": resultado_mexp["value"] - resultado_aexp_["value"]
                     }
+            
+            if resultado_mexp.get("has_identifier", False):
+                return {
+                    "type": resultado_mexp["type"],
+                    "value": None,
+                    "has_identifier": True
+                }
+            else:
+                # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
+                val_node = Node(Token(str(resultado_mexp["value"]), str(resultado_mexp["type"])))
+                constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
                 
-            return resultado_mexp
+                empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                expression.children = [constant_node, aexp__node]
+                return resultado_mexp
 
         elif expression.token.type_ == "<AEXP_>":
             # AEXP_ -> + MEXP AEXP_
@@ -535,32 +839,97 @@ class Semantic:
                 this_operator = expression.children[0].token.value
 
                 if resultado_aexp_:
-                    if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
+                    if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):   
+                        #both sides must be int, otherwise we have an error
+                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                            raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
+                                             
                         return {
-                            "type": "int",
+                            "type": "number",
                             "value": None,
                             "has_identifier": True,
                             "operator": this_operator
                         }
                     if resultado_aexp_["operator"] == "+":
+                        
+                        # both sides must be int, otherwise we have an error
+                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                            raise Exception("Invalid operation '+' between non-int values")
+                        
+                        # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
+                        newValue = resultado_mexp["value"] + resultado_aexp_["value"]
+                        
+                        # Creating operator node
+                        operator_node = Node(Token("+", "+"))
+                        
+                        # Creating MEXP children
+                        val_node = Node(Token(str(newValue), "number"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                        
+                        # Creating AEXP_ children
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                        
+                        # Setting new children
+                        expression.children = [operator_node, constant_node, aexp__node]
+                        
                         return {
-                            "type": "int",
+                            "type": "number",
                             "value": resultado_mexp["value"] + resultado_aexp_["value"],
                             "operator": this_operator
                         }
                     elif resultado_aexp_["operator"] == "-":
+                        
+                        # both sides must be int, otherwise we have an error
+                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                            raise Exception("Invalid operation '-' between non-int values")
+                        
+                        # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
+                        newValue = resultado_mexp["value"] - resultado_aexp_["value"]
+                        
+                        # Creating operator node
+                        operator_node = Node(Token("-", "-"))
+                        
+                        # Creating MEXP children
+                        val_node = Node(Token(str(newValue), "number"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                        
+                        # Creating AEXP_ children
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                        
+                        # Setting new children
+                        expression.children = [operator_node, constant_node, aexp__node]
+                        
                         return {
-                            "type": "int",
+                            "type": "number",
                             "value": resultado_mexp["value"] - resultado_aexp_["value"],
                             "operator": this_operator
                         }
                 
-                return {
-                    "type": "int",
-                    "value": resultado_mexp["value"],
-                    "operator": this_operator
-                }
-
+                if resultado_mexp.get("has_identifier", False):
+                    return {
+                        "type": resultado_mexp["type"],
+                        "value": None,
+                        "has_identifier": True
+                    }
+                else:
+                    # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
+                    operator_node = Node(Token(this_operator, this_operator))
+                    
+                    val_node = Node(Token(str(resultado_mexp["value"]), resultado_mexp["type"]))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    aexp__node = Node(Token("<AEXP_>", "<AEXP_>"), [empty_node])
+                    expression.children = [operator_node, constant_node, aexp__node]
+                    
+                    return {
+                        "type": resultado_mexp["type"],
+                        "value": resultado_mexp["value"],
+                        "has_identifier": False,
+                        "operator": this_operator
+                    }
             else:
                 return None
 
@@ -571,18 +940,55 @@ class Semantic:
 
             if resultado_mexp_:
                 if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
+                    #both sides must be int, otherwise we have an error
+                    if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                        raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
+                    
                     return {
-                        "type": "int",
+                        "type": "number",
                         "value": None,
                         "has_identifier": True
                     }
                 if resultado_mexp_["operator"] == "*":
+                    
+                    # both sides must be int, otherwise we have an error
+                    if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                        raise Exception("Invalid operation '*' between non-int values")
+                    
+                    # Simplify children to be just the SEXP -> number and MEXP_ -> ε
+                    newValue = resultado_sexp["value"] * resultado_mexp_["value"]
+                    
+                    val_node = Node(Token(str(newValue), "number"))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    mexp__node = Node(Token("<MEXP_>", "<MEXP_>"), [empty_node])
+                    
+                    expression.children = [constant_node, mexp__node]                    
+                    
                     return {
-                        "type": "int",
-                        "value": resultado_sexp["value"] * resultado_mexp_["value"]
+                        "type": "number",
+                        "value": newValue
                     }
-                
-            return resultado_sexp
+            
+            else:
+                if resultado_sexp.get("has_identifier", False):
+                    return {
+                        "type": "number",
+                        "value": None,
+                        "has_identifier": True
+                    }
+                else:
+                    # Simplify children
+                    val_node = Node(Token(str(resultado_sexp["value"]), resultado_sexp["type"]))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    mexp__node = Node(Token("<MEXP_>", "<MEXP_>"), [empty_node])
+                    
+                    expression.children = [constant_node, mexp__node]
+                    
+                    return resultado_sexp
 
         elif expression.token.type_ == "<MEXP_>":
             # MEXP_ -> * SEXP MEXP_
@@ -593,23 +999,64 @@ class Semantic:
 
                 if resultado_mexp_:
                     if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
+                        # both sides must be int, otherwise we have an error
+                        if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                            raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
+                        
                         return {
-                            "type": "int",
+                            "type": "number",
                             "value": None,
                             "has_identifier": True
                         }
+                        
                     if resultado_mexp_["operator"] == "*":
+                        # both sides must be int, otherwise we have an error
+                        if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                            raise Exception("Invalid operation '*' between non-int values")
+                        
+                        # Simplify children to be just the SEXP -> number and MEXP_ -> ε
+                        newValue = resultado_sexp["value"] * resultado_mexp_["value"]
+                        
+                        operator_node = Node(Token("*", "*"))
+                        val_node = Node(Token(str(newValue), "number"))
+                        constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                        
+                        empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                        mexp_node = Node(Token("<MEXP_>", "<MEXP_>"), [empty_node])
+                        
+                        expression.children = [operator_node, constant_node, mexp_node]
+                        
                         return {
-                            "type": "int",
+                            "type": "number",
                             "value": resultado_sexp["value"] * resultado_mexp_["value"],
                             "operator": "*"                            
                         }
+                
+                if resultado_sexp.get("has_identifier", False):
+                    return {
+                        "type": resultado_sexp["type"],
+                        "value": None,
+                        "has_identifier": True,
+                        "operator": "*"
+                    }
+                else:
+                    # Simplify children to be just the SEXP -> number and MEXP_ -> ε
+                    operator_node = Node(Token("*", "*"))
                     
-                return {
-                    "type": "int",
-                    "value": resultado_sexp["value"],
-                    "operator": "*"
-                }
+                    val_node = Node(Token(str(resultado_sexp["value"]), resultado_sexp["type"]))
+                    constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                    
+                    empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
+                    mexp_node = Node(Token("<MEXP_>", "<MEXP_>"), [empty_node])
+                    
+                    expression.children = [operator_node, constant_node, mexp_node]
+                    
+                    return {
+                        "type": resultado_sexp["type"],
+                        "value": resultado_sexp["value"],
+                        "has_identifier": False,
+                        "operator": "*"
+                    }
             else:
                 return None
 
@@ -625,12 +1072,22 @@ class Semantic:
             
             if expression.children[0].token.type_ == "!":
                 resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
+                
+                # sexp must be boolean, otherwise we have an error
+                if resultado_sexp["type"] != "boolean":
+                    raise Exception("Invalid operation '!' on non-boolean value")
+                
                 if resultado_sexp.get("has_identifier", False):
                     return {
                         "type": "boolean",
                         "value": None,
                         "has_identifier": True
                     }
+                    
+                # Simplify children
+                val_node = Node(Token(str(not resultado_sexp["value"]), "boolean"))
+                constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                expression.children = [constant_node]
                     
                 return {
                     "type": "boolean",
@@ -639,42 +1096,71 @@ class Semantic:
                 
             elif expression.children[0].token.type_ == "-":
                 resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
+                
+                # sexp must be int, otherwise we have an error
+                if resultado_sexp["type"] != "number":
+                    raise Exception("Invalid operation '-' on non-int value")
+                    
                 if resultado_sexp.get("has_identifier", False):
                     return {
-                        "type": "int",
+                        "type": "number",
                         "value": None,
                         "has_identifier": True
                     }
+                    
+                # Simplify children
+                val_node = Node(Token(str(-resultado_sexp["value"]), "number"))
+                constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
+                expression.children = [constant_node]
+                
                 return {
-                    "type": "int",
+                    "type": "number",
                     "value": -resultado_sexp["value"]
                 }
             
             elif expression.children[0].token.type_ == "true":
+                # This node is a constant boolean with value True
+                expression.token = Token("<CONSTANT>", "<CONSTANT>")
+                expression.children = [Node(Token("boolean", "True"))]
+                
                 return {
                     "type": "boolean",
                     "value": True
                 }
                 
             elif expression.children[0].token.type_ == "false":
+                # This node is a constant boolean with value False
+                expression.token = Token("<CONSTANT>", "<CONSTANT>")
+                expression.children = [Node(Token("boolean", "False"))]
+                
                 return {
                     "type": "boolean",
                     "value": False
                 }
                 
             elif expression.children[0].token.type_ == "number":
+                # This node is a constant int with the value of the number
+                expression.token = Token("<CONSTANT>", "<CONSTANT>")
+                expression.children = [Node(Token(expression.children[0].token.value, "number"))]
+                
                 return {
-                    "type": "int",
+                    "type": "number",
                     "value": int(expression.children[0].token.value)
                 }
                 
             elif expression.children[0].token.type_ == "null":
+                # This node is a constant null
+                expression.token = Token("<CONSTANT>", "<CONSTANT>")
+                expression.children = [Node(Token("null", "null"))]
+                
                 return {
                     "type": "null",
                     "value": None
                 }
             
             elif expression.children[0].token.type_ == "new":
+                # this node is a new object instantiation
+                
                 resultado_newexp = self.analyze_expression(expression.children[1], scope_manager) # NEWEXP
                 # Resultado de NEWEXP é um dicionário com o tipo e valor do objeto instanciado e sempre tem has_identifier = True
                 return resultado_newexp
@@ -691,6 +1177,9 @@ class Semantic:
                     return resultado_spexp
 
                 return resultado_pexp
+            
+            else:
+                raise Exception(f"Invalid SEXP node. Expected '!', '-', 'true', 'false', 'number', 'null', 'new' or 'PEXP' but got '{expression.children[0].token.type_}'")
 
         elif expression.token.type_ == "<PEXP>":
             # PEXP -> identifier
@@ -750,14 +1239,14 @@ class Semantic:
                 # Não é possível acessar um elemento com [] de um tipo que não seja array
                 if current_type == "int[]":
                     resultado_exp = self.analyze_expression(expression.children[1], scope_manager) # EXP
-                    if resultado_exp != "int":
+                    if resultado_exp != "number":
                         raise Exception(f"Array access with non-integer index, expected 'int' but got '{resultado_exp}'")
                 else:
                     raise Exception(f"Type '{current_type}' is not an array")
                 
                 # Só temos arrays de inteiros, então se um array é acessado, o tipo do resultado é int
                 return {
-                    "type": "int",
+                    "type": "number",
                     "value": None,
                     "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
                 }
@@ -811,7 +1300,7 @@ class Semantic:
                     raise Exception(f"Type '{current_type}' is not an array, cannot access 'length'")
                 
                 return {
-                    "type": "int",
+                    "type": "number",
                     "value": None,
                     "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
                 }
@@ -913,9 +1402,9 @@ class Semantic:
                     "has_identifier": True
                 }
                 
-            elif expression.children[0].token.value == "int":
+            elif expression.children[0].token.value == "number":
                 resultado_exp = self.analyze_expression(expression.children[2], scope_manager)
-                if resultado_exp != "int":
+                if resultado_exp != "number":
                     raise Exception("Array size must be an integer")
                 
                 return {
@@ -933,7 +1422,40 @@ def get_symbol_table(ast: Node):
     sem.scan_declarations(ast)
     return sem.symbol_table
 
-def analyze_semantics(ast: Node):
+def analyze_semantics(options: Options, ast: Node):
+    
+    def create_graph(node: Node, parent: Node = None) -> at.Node:
+        graph_node = at.Node(node, parent)
+        type_ = node.token.type_
+        if type_ in ["<CONSTANT>", "number", "boolean", "null"]:
+            graph_node.color = "lightgreen"
+        elif type_ in ["identifier", "this"]:
+            graph_node.color = "orange"
+        elif type_ in ["<EXP>","<REXP>", "<AEXP>", "<MEXP>", "<SEXP>", "<PEXP>", "<SPEXP>", "<SPEXP_>", "<SPEXP__>", "<OEXPS>", "<EXPS>", "<EXPS_>", "<NEWEXP>"]:
+            graph_node.color = "lightblue"
+        else:
+            graph_node.color = "white"
+        
+        for child in node.children:
+            create_graph(child, graph_node)
+            
+        return graph_node
+        
+    
+    def node_attr(node: at.Node) -> str:
+        return f'label="{node.name}" fillcolor="{node.color}" style="filled"'
+    
     sem = Semantic()
     sem.semantic_analysis(ast)
+    
+    graph = create_graph(ast)
+    
+    if options.graph:
+        exporter.UniqueDotExporter(graph, nodeattrfunc=node_attr).to_dotfile(f"{options.files_dir}semantic_tree.dot")
+        subprocess.run(
+            ["dot", f"{options.files_dir}semantic_tree.dot", "-Tpdf", "-o", f"{options.files_dir}semantic_tree.pdf"],
+            check=True
+        )
+    
+    
     return sem.symbol_table

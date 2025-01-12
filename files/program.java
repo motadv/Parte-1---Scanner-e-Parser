@@ -33,9 +33,10 @@ class A {
     int num2;
     int num3;
     int result;
+
     public int foo() {
         {
-            num1 = 1 + (3 - 7) * 4;
+            num1 = 1 * 1 * 1 * 1 * 1;
             result = num1;
         }
         return result;
@@ -51,7 +52,7 @@ class B {
 
     public int foo() {
         {
-            returnVal = 0;
+            returnVal = 1 + 5 + 10 + 15 + 20;
         }
         return returnVal;
     }
