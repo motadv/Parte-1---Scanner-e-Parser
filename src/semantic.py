@@ -52,6 +52,12 @@ class ScopeManager:
                 scope[name] = current_var_info
                 return
         self.scopes[-1][name] = var_info
+        
+    def print_scopes(self):
+        for i, scope in enumerate(self.scopes):
+            print(f"Scope {i}:")
+            for k, v in scope.items():
+                print(f"\t{k}: {v}")
 
 
 class Semantic:
@@ -523,7 +529,7 @@ class Semantic:
             # resultado_rexp_ é None ou um dicionário com o tipo, valor e operador da expressão
             if resultado_rexp_:
                 if resultado_rexp_["operator"] == "<":
-                    if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                    if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                         raise Exception("Invalid operation '<' between non-int values")
                 else:
                     if resultado_aexp["type"] != resultado_rexp_["type"]:
@@ -540,7 +546,7 @@ class Semantic:
                 if resultado_rexp_["operator"] == "<":
                     
                     # both sides must be int, otherwise we have an error
-                    if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                    if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                         raise Exception("Invalid operation '<' between non-int values")
                     
                     # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
@@ -633,7 +639,7 @@ class Semantic:
                 if resultado_rexp_:
                     if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                         if resultado_rexp_["operator"] == "<":
-                            if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                            if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                                 raise Exception("Invalid operation '<' between non-int values")
                         else:
                             if resultado_aexp["type"] != resultado_rexp_["type"]:
@@ -649,7 +655,7 @@ class Semantic:
                     if resultado_rexp_["operator"] == "<":
                         
                         # both sides must be int, otherwise we have an error
-                        if resultado_aexp["type"] != "number" or resultado_rexp_["type"] != "number":
+                        if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                             raise Exception("Invalid operation '<' between non-int values")
                         
                         # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
@@ -751,11 +757,11 @@ class Semantic:
             if resultado_aexp_:
                 if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
                     #both sides must be int, otherwise we have an error
-                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                    if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                         raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
                     
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": None,
                         "has_identifier": True
                     }
@@ -763,7 +769,7 @@ class Semantic:
                 if resultado_aexp_["operator"] == "+":
                     
                     # both sides must be int, otherwise we have an error
-                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                    if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                         raise Exception("Invalid operation '+' between non-int values")
                     
                     # Simplify children to be just CONSTANT -> number and AEXP_ -> ε
@@ -778,12 +784,12 @@ class Semantic:
                     expression.children = [constant_node, aexp__node]
                     
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": resultado_mexp["value"] + resultado_aexp_["value"]
                     }
                 elif resultado_aexp_["operator"] == "-":
                     
-                    if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                    if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                         raise Exception("Invalid operation '-' between non-int values")
                     
                     # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
@@ -800,7 +806,7 @@ class Semantic:
                     # Setting new children
                     expression.children = [constant_node, aexp__node]
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": resultado_mexp["value"] - resultado_aexp_["value"]
                     }
             
@@ -833,11 +839,11 @@ class Semantic:
                 if resultado_aexp_:
                     if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):   
                         #both sides must be int, otherwise we have an error
-                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                             raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
                                              
                         return {
-                            "type": "number",
+                            "type": "int",
                             "value": None,
                             "has_identifier": True,
                             "operator": this_operator
@@ -845,7 +851,7 @@ class Semantic:
                     if resultado_aexp_["operator"] == "+":
                         
                         # both sides must be int, otherwise we have an error
-                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                             raise Exception("Invalid operation '+' between non-int values")
                         
                         # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
@@ -866,14 +872,14 @@ class Semantic:
                         expression.children = [operator_node, constant_node, aexp__node]
                         
                         return {
-                            "type": "number",
+                            "type": "int",
                             "value": resultado_mexp["value"] + resultado_aexp_["value"],
                             "operator": this_operator
                         }
                     elif resultado_aexp_["operator"] == "-":
                         
                         # both sides must be int, otherwise we have an error
-                        if resultado_mexp["type"] != "number" or resultado_aexp_["type"] != "number":
+                        if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
                             raise Exception("Invalid operation '-' between non-int values")
                         
                         # Simplify children to be just the MEXP -> SEXP -> number and AEXP_ -> ε
@@ -894,7 +900,7 @@ class Semantic:
                         expression.children = [operator_node, constant_node, aexp__node]
                         
                         return {
-                            "type": "number",
+                            "type": "int",
                             "value": resultado_mexp["value"] - resultado_aexp_["value"],
                             "operator": this_operator
                         }
@@ -933,18 +939,19 @@ class Semantic:
             if resultado_mexp_:
                 if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
                     #both sides must be int, otherwise we have an error
-                    if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                    if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
+                        print(resultado_sexp, resultado_mexp_)
                         raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
                     
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": None,
                         "has_identifier": True
                     }
                 if resultado_mexp_["operator"] == "*":
                     
                     # both sides must be int, otherwise we have an error
-                    if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                    if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
                         raise Exception("Invalid operation '*' between non-int values")
                     
                     # Simplify children to be just the SEXP -> number and MEXP_ -> ε
@@ -959,14 +966,14 @@ class Semantic:
                     expression.children = [constant_node, mexp__node]                    
                     
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": newValue
                     }
             
             else:
                 if resultado_sexp.get("has_identifier", False):
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": None,
                         "has_identifier": True
                     }
@@ -992,25 +999,25 @@ class Semantic:
                 if resultado_mexp_:
                     if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
                         # both sides must be int, otherwise we have an error
-                        if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                        if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
                             raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
                         
                         return {
-                            "type": "number",
+                            "type": "int",
                             "value": None,
                             "has_identifier": True
                         }
                         
                     if resultado_mexp_["operator"] == "*":
                         # both sides must be int, otherwise we have an error
-                        if resultado_sexp["type"] != "number" or resultado_mexp_["type"] != "number":
+                        if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
                             raise Exception("Invalid operation '*' between non-int values")
                         
                         # Simplify children to be just the SEXP -> number and MEXP_ -> ε
                         newValue = resultado_sexp["value"] * resultado_mexp_["value"]
                         
                         operator_node = Node(Token("*", "*"))
-                        val_node = Node(Token(str(newValue), "number"))
+                        val_node = Node(Token(str(newValue), "int"))
                         constant_node = Node(Token("<CONSTANT>", "<CONSTANT>"), [val_node])
                         
                         empty_node = Node(Token(EMPTY_CHAR, EMPTY_CHAR))
@@ -1019,7 +1026,7 @@ class Semantic:
                         expression.children = [operator_node, constant_node, mexp_node]
                         
                         return {
-                            "type": "number",
+                            "type": "int",
                             "value": resultado_sexp["value"] * resultado_mexp_["value"],
                             "operator": "*"                            
                         }
@@ -1090,12 +1097,12 @@ class Semantic:
                 resultado_sexp = self.analyze_expression(expression.children[1], scope_manager) # SEXP
                 
                 # sexp must be int, otherwise we have an error
-                if resultado_sexp["type"] != "number":
+                if resultado_sexp["type"] != "int":
                     raise Exception("Invalid operation '-' on non-int value")
                     
                 if resultado_sexp.get("has_identifier", False):
                     return {
-                        "type": "number",
+                        "type": "int",
                         "value": None,
                         "has_identifier": True
                     }
@@ -1106,7 +1113,7 @@ class Semantic:
                 expression.children = [constant_node]
                 
                 return {
-                    "type": "number",
+                    "type": "int",
                     "value": -resultado_sexp["value"]
                 }
             
@@ -1133,10 +1140,10 @@ class Semantic:
             elif expression.children[0].token.type_ == "number":
                 # This node is a constant int with the value of the number
                 expression.token = Token("<CONSTANT>", "<CONSTANT>")
-                expression.children = [Node(Token(expression.children[0].token.value, "number"))]
+                expression.children = [Node(Token(expression.children[0].token.value, "int"))]
                 
                 return {
-                    "type": "number",
+                    "type": "int",
                     "value": int(expression.children[0].token.value)
                 }
                 
@@ -1220,6 +1227,7 @@ class Semantic:
             # SPEXP só existe após um PEXP ou ao final de SPEXP_
             #  então o other_data é o tipo do simbolo anterior
             current_type = other_data
+            
             if expression.children[0].token.type_ == ".":
 
                 # Passar para o SPEXP_ o tipo da variável atual para que ele possa verificar se o método ou atributo existe
@@ -1231,14 +1239,14 @@ class Semantic:
                 # Não é possível acessar um elemento com [] de um tipo que não seja array
                 if current_type == "int[]":
                     resultado_exp = self.analyze_expression(expression.children[1], scope_manager) # EXP
-                    if resultado_exp != "number":
+                    if resultado_exp != "int":
                         raise Exception(f"Array access with non-integer index, expected 'int' but got '{resultado_exp}'")
                 else:
                     raise Exception(f"Type '{current_type}' is not an array")
                 
                 # Só temos arrays de inteiros, então se um array é acessado, o tipo do resultado é int
                 return {
-                    "type": "number",
+                    "type": "int",
                     "value": None,
                     "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
                 }
@@ -1256,23 +1264,15 @@ class Semantic:
             current_type = other_data
 
             if expression.children[0].token.type_ == "identifier":
-                try:
-                    variable_name = expression.children[0].token.value
-                    variable_info = scope_manager.get_variable(variable_name)
-                except Exception as e:
-                    raise Exception(f"Variable '{expression.children[0].token.value}' not declared") from e
-
-                # Tente ver se o identificador está presente na symbol_table como um possível atributo ou método
-                if variable_name not in self.symbol_table[current_type]["variables"] and variable_name not in self.symbol_table[current_type]["methods"]:
-                    # Se não estiver, então é um erro
-                    raise Exception(f"Symbol '{variable_name}' is not an attribute or method of '{current_type}'")
+                variable_name = expression.children[0].token.value
+                isVariable = variable_name in self.symbol_table[current_type]["variables"]
+                isMethod = variable_name in self.symbol_table[current_type]["methods"]
                 
+                if not isVariable and not isMethod:
+                    raise Exception(f"Symbol '{variable_name}' is not an attribute or method of '{current_type}'")
+
                 # Aqui sabemos que o identificador é um atributo ou método da variável atual
                 # Precisamos verificar qual o seu tipo para passarmos para SPEXP em children[2]
-                # Se for um metodo, precisamos passar para SPEXP__ em children[1] quais são os parametros aceitos
-                isMethod = variable_name in self.symbol_table[current_type]["methods"]
-                # Se for um atributo, passamos o tipo do atributo para SPEXP
-                isAttribute = variable_name in self.symbol_table[current_type]["variables"]
 
                 idenfitier_type = self.symbol_table[current_type]["methods"][variable_name]["type"] if isMethod else self.symbol_table[current_type]["variables"][variable_name]["type"]
                 method_params = self.symbol_table[current_type]["methods"][variable_name]["params"] if isMethod else None
@@ -1292,7 +1292,7 @@ class Semantic:
                     raise Exception(f"Type '{current_type}' is not an array, cannot access 'length'")
                 
                 return {
-                    "type": "number",
+                    "type": "int",
                     "value": None,
                     "has_identifier": True # Para indicar que é um array acessado e não podemos pré calcular valores
                 }
@@ -1345,7 +1345,7 @@ class Semantic:
 
             if not other_data:
                 # Esgotaram os parametros que o método aceita mas ainda há parametros a serem passados
-                raise Exception("Method called with too many parameters")
+                raise Exception(f"Method called with too many parameters. All parameters have been passed but there are still {len(expression.children[1].children)} parameters left")
             
             resultado_exp = self.analyze_expression(expression.children[0], scope_manager) # EXP
             
@@ -1367,7 +1367,7 @@ class Semantic:
                 self.analyze_expression(expression.children[1], scope_manager, other_data) # EXPS
             else:
                 if other_data:
-                    raise Exception("Method called with too few parameters, missing parameters of types: " + ", ".join(other_data))
+                    raise Exception(f"Method called with too few parameters, missing {len(other_data)} parameters of types: {", ".join(other_data)}")
 
             # Não há retorno para EXPS_
             return None
@@ -1383,7 +1383,8 @@ class Semantic:
                     raise Exception(f"Cannot instantiate undeclared class '{expression.children[0].token.value}'")
                 
                 # Se o identificador é uma variável, então é um objeto instanciado
-                resultado_spexp = self.analyze_expression(expression.children[3], scope_manager) # SPEXP
+                current_type = expression.children[0].token.value
+                resultado_spexp = self.analyze_expression(expression.children[3], scope_manager, current_type) # SPEXP
                 
                 if resultado_spexp:
                     return resultado_spexp
@@ -1394,9 +1395,9 @@ class Semantic:
                     "has_identifier": True
                 }
                 
-            elif expression.children[0].token.value == "number":
+            elif expression.children[0].token.value == "int":
                 resultado_exp = self.analyze_expression(expression.children[2], scope_manager)
-                if resultado_exp != "number":
+                if resultado_exp != "int":
                     raise Exception("Array size must be an integer")
                 
                 return {

@@ -12,5 +12,6 @@ options = Options(sys.argv, "files/")
 scan(options)
 sat = parse(options, get_grammar(), get_terminal_list())
 
-# symbol_table =get_symbol_table(sat)
 analyze_semantics(options, sat)
+
+

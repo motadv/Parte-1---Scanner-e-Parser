@@ -23,7 +23,7 @@
 class Main
 {
 	public static void main(String[] args) {
-        System.out.println(1 + 2 + 4 + 8 + 16);
+        System.out.println(new A().foo(1, 2+7*23-83261, 3));
 	}
 	
 }
@@ -34,9 +34,9 @@ class A {
     int num3;
     int result;
 
-    public int foo() {
+    public int foo(int p1, int p2, int p3) {
         {
-            num1 = 1 * 1 * 1 * 1 * 1;
+            num1 = p1 + p2 * p3;
             result = num1;
         }
         return result;
