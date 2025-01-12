@@ -284,7 +284,7 @@ class Semantic:
                         resultado_return["type"] = "int"
                         
                     if resultado_return["type"] != self.symbol_table[clsIdentifier]["methods"][methodIdentifier]["type"]:
-                        raise Exception(f"Invalid return type '{resultado_return['type']}' in method '{methodIdentifier}'")
+                        raise Exception(f"Invalid return type '{resultado_return['type']}' in method '{methodIdentifier}' of class '{clsIdentifier}'")
                 
                 scope_manager.exit_scope() # *Exiting method scope
                 currentMethod = currentMethod.children[1]
@@ -940,7 +940,6 @@ class Semantic:
                 if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
                     #both sides must be int, otherwise we have an error
                     if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
-                        print(resultado_sexp, resultado_mexp_)
                         raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
                     
                     return {
@@ -973,7 +972,7 @@ class Semantic:
             else:
                 if resultado_sexp.get("has_identifier", False):
                     return {
-                        "type": "int",
+                        "type": resultado_sexp["type"],
                         "value": None,
                         "has_identifier": True
                     }
@@ -1308,7 +1307,12 @@ class Semantic:
 
             if expression.children[0].token.type_ != EMPTY_CHAR:
                 self.analyze_expression(expression.children[1], scope_manager, current_params) # OEXPS
-                # Não há retorno para OEXPS
+                # Não há retorno para OEXPS mas SPEXP__ deve avisar que teve uma chamada de método
+                return {
+                    "type": "method",
+                    "value": None,
+                    "has_identifier": True
+                }
                 
             else:
                 if current_params:
@@ -1385,6 +1389,7 @@ class Semantic:
                 # Se o identificador é uma variável, então é um objeto instanciado
                 current_type = expression.children[0].token.value
                 resultado_spexp = self.analyze_expression(expression.children[3], scope_manager, current_type) # SPEXP
+                
                 
                 if resultado_spexp:
                     return resultado_spexp

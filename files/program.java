@@ -23,7 +23,7 @@
 class Main
 {
 	public static void main(String[] args) {
-        System.out.println(new A().foo(1, 2+7*23-83261, 3));
+        System.out.println(1);
 	}
 	
 }
@@ -40,6 +40,11 @@ class A {
             result = num1;
         }
         return result;
+    }
+
+    public B bar() {
+        {}
+        return new B();
     }
 }
 
