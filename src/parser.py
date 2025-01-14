@@ -393,8 +393,8 @@ def parse(
     # Create graph
     graph = create_graph(result)
     for pre, fill, node in at.RenderTree(graph):
-        print("%s%s" % (pre, node.name))
-
+        # print("%s%s" % (pre, node.name))
+        pass
     if options.graph:
         exporter.UniqueDotExporter(graph, nodeattrfunc=node_attr).to_dotfile(f"{options.files_dir}parsing_tree.dot")
         subprocess.run(

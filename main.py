@@ -14,4 +14,5 @@ scan(options)
 sat = parse(options, get_grammar(), get_terminal_list())
 
 symbol_table, semantic_tree = analyze_semantics(options, sat)
+generate_code(symbol_table, semantic_tree)
 
