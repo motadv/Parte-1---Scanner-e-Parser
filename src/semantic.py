@@ -335,13 +335,13 @@ class Semantic:
                 # CMD -> if ( EXP ) { CMD } CMDELSE
                 
                 # Analyze expression inside if
-                self.analyze_expression(command.children[2], scope_manager)
+                self.analyze_expression(command.children[2], scope_manager) # EXP
                 # Analyze commands inside if scope
                 scope_manager.enter_scope()
-                self.analyze_command(command.children[5], scope_manager)
+                self.analyze_command(command.children[5], scope_manager) # CMD
                 scope_manager.exit_scope()
                 # Analyze else commands
-                self.analyze_command(command.children[6], scope_manager)
+                self.analyze_command(command.children[7], scope_manager) # CMDELSE
 
             elif command.children[0].token.value == "while":
                 # CMD -> while ( EXP ) CMD
@@ -401,7 +401,7 @@ class Semantic:
 
 
         else:
-            raise Exception("Invalid command node")
+            raise Exception("Invalid command node, encountered node type: " + command.token.type_)
         
     def analyze_expression(self, expression: Node, scope_manager: ScopeManager, other_data = None):
         if expression.token.type_ == "<EXP>":
@@ -536,7 +536,7 @@ class Semantic:
                     if resultado_aexp["type"] != resultado_rexp_["type"]:
                         raise Exception(f"Invalid operation '{resultado_rexp_['operator']}' between different types")
                     
-                if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                if resultado_rexp_.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                     return {
                         "type": "boolean",
                         "value": None,
@@ -1279,6 +1279,9 @@ class Semantic:
 
                 resultado_spexp__ = self.analyze_expression(expression.children[1], scope_manager, method_params) # SPEXP__
                 resultado_spexp = self.analyze_expression(expression.children[2], scope_manager, idenfitier_type) # SPEXP
+
+                if isMethod and not resultado_spexp__:
+                    raise Exception(f"Method '{variable_name}' must be called with parameters. Missing parenthesis")
 
                 return {
                     "type": idenfitier_type,

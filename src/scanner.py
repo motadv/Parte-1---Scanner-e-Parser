@@ -73,7 +73,7 @@ def remove_comments(string) -> str:
     :param string: The string to remove comments from.
     :return: The string without comments.
     """
-    out_string = re.sub(r"//.*?[\n\r]", "", string)
+    out_string = re.sub(r"//.*?$", "", string, flags=re.MULTILINE)
     out_string = re.sub(r"/\*.*?\*/", "", out_string, flags=re.DOTALL)
     return out_string
 
