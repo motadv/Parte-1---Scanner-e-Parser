@@ -3,6 +3,7 @@ from src.parser import Node, EMPTY_CHAR, Token
 import anytree as at
 import anytree.exporter as exporter
 import subprocess
+import json
 
 from src.options import Options
 
@@ -308,7 +309,7 @@ class Semantic:
         scope_manager.exit_scope()
         
         scope_manager.exit_scope()
-        
+
 
     def analyze_command(self, command: Node, scope_manager: ScopeManager):
         """
@@ -533,7 +534,7 @@ class Semantic:
                         raise Exception("Invalid operation '<' between non-int values")
                 else:
                     if resultado_aexp["type"] != resultado_rexp_["type"]:
-                        raise Exception(f"Invalid operation '{resultado_rexp_["operator"]}' between different types")
+                        raise Exception(f"Invalid operation '{resultado_rexp_['operator']}' between different types")
                     
                 if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                     return {
@@ -758,7 +759,7 @@ class Semantic:
                 if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):
                     #both sides must be int, otherwise we have an error
                     if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
-                        raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
+                        raise Exception(f"Invalid operation '{resultado_aexp_['operator']}' between non-int values")
                     
                     return {
                         "type": "int",
@@ -840,7 +841,7 @@ class Semantic:
                     if resultado_aexp_.get("has_identifier", False) or resultado_mexp.get("has_identifier", False):   
                         #both sides must be int, otherwise we have an error
                         if resultado_mexp["type"] != "int" or resultado_aexp_["type"] != "int":
-                            raise Exception(f"Invalid operation '{resultado_aexp_["operator"]}' between non-int values")
+                            raise Exception(f"Invalid operation '{resultado_aexp_['operator']}' between non-int values")
                                              
                         return {
                             "type": "int",
@@ -940,7 +941,7 @@ class Semantic:
                 if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
                     #both sides must be int, otherwise we have an error
                     if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
-                        raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
+                        raise Exception(f"Invalid operation '{resultado_mexp_['operator']}' between non-int values")
                     
                     return {
                         "type": "int",
@@ -999,7 +1000,7 @@ class Semantic:
                     if resultado_mexp_.get("has_identifier", False) or resultado_sexp.get("has_identifier", False):
                         # both sides must be int, otherwise we have an error
                         if resultado_sexp["type"] != "int" or resultado_mexp_["type"] != "int":
-                            raise Exception(f"Invalid operation '{resultado_mexp_["operator"]}' between non-int values")
+                            raise Exception(f"Invalid operation '{resultado_mexp_['operator']}' between non-int values")
                         
                         return {
                             "type": "int",
@@ -1354,7 +1355,7 @@ class Semantic:
             resultado_exp = self.analyze_expression(expression.children[0], scope_manager) # EXP
             
             if resultado_exp["type"] != other_data[0]:
-                raise Exception(f"Method called with parameter of wrong type, expected '{other_data[0]}' but got '{resultado_exp["type"]} '")
+                raise Exception(f"Method called with parameter of wrong type, expected '{other_data[0]}' but got '{resultado_exp['type']} '")
             
             self.analyze_expression(expression.children[1], scope_manager, other_data[1:]) # EXPS_
             # Não há retorno para EXPS_
@@ -1371,7 +1372,7 @@ class Semantic:
                 self.analyze_expression(expression.children[1], scope_manager, other_data) # EXPS
             else:
                 if other_data:
-                    raise Exception(f"Method called with too few parameters, missing {len(other_data)} parameters of types: {", ".join(other_data)}")
+                    raise Exception(f"Method called with too few parameters, missing {len(other_data)} parameters of types: {', '.join(other_data)}")
 
             # Não há retorno para EXPS_
             return None
@@ -1454,6 +1455,10 @@ def analyze_semantics(options: Options, ast: Node):
             ["dot", f"{options.files_dir}semantic_tree.dot", "-Tpdf", "-o", f"{options.files_dir}semantic_tree.pdf"],
             check=True
         )
+
+    json_object = json.dumps(sem.symbol_table, indent=4)
+
+    # Print JSON object
+    print(json_object)
     
-    
-    return sem.symbol_table
+    return sem.symbol_table, ast
