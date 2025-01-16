@@ -335,13 +335,13 @@ class Semantic:
                 # CMD -> if ( EXP ) { CMD } CMDELSE
                 
                 # Analyze expression inside if
-                self.analyze_expression(command.children[2], scope_manager)
+                self.analyze_expression(command.children[2], scope_manager) # EXP
                 # Analyze commands inside if scope
                 scope_manager.enter_scope()
-                self.analyze_command(command.children[5], scope_manager)
+                self.analyze_command(command.children[5], scope_manager) # CMD
                 scope_manager.exit_scope()
                 # Analyze else commands
-                self.analyze_command(command.children[6], scope_manager)
+                self.analyze_command(command.children[7], scope_manager) # CMDELSE
 
             elif command.children[0].token.value == "while":
                 # CMD -> while ( EXP ) CMD
@@ -401,7 +401,7 @@ class Semantic:
 
 
         else:
-            raise Exception("Invalid command node")
+            raise Exception("Invalid command node, encountered node type: " + command.token.type_)
         
     def analyze_expression(self, expression: Node, scope_manager: ScopeManager, other_data = None):
         if expression.token.type_ == "<EXP>":
@@ -536,7 +536,7 @@ class Semantic:
                     if resultado_aexp["type"] != resultado_rexp_["type"]:
                         raise Exception(f"Invalid operation '{resultado_rexp_['operator']}' between different types")
                     
-                if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                if resultado_rexp_.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                     return {
                         "type": "boolean",
                         "value": None,
@@ -1280,6 +1280,9 @@ class Semantic:
                 resultado_spexp__ = self.analyze_expression(expression.children[1], scope_manager, method_params) # SPEXP__
                 resultado_spexp = self.analyze_expression(expression.children[2], scope_manager, idenfitier_type) # SPEXP
 
+                if isMethod and not resultado_spexp__:
+                    raise Exception(f"Method '{variable_name}' must be called with parameters. Missing parenthesis")
+
                 return {
                     "type": idenfitier_type,
                     "value": None,
@@ -1303,8 +1306,10 @@ class Semantic:
 
             # other_data aqui é o dicionário de parametros do método que está sendo chamado ou None se não for um método
             current_params = other_data
+            print("Received params: ", current_params)
             # Transformar o dicionário de parametros em uma lista de tipos para comparar com os parametros passados
             current_params = [v["type"] for v in current_params.values()] if current_params else None
+            print("Current params: ", current_params)
 
             if expression.children[0].token.type_ != EMPTY_CHAR:
                 self.analyze_expression(expression.children[1], scope_manager, current_params) # OEXPS
@@ -1326,18 +1331,18 @@ class Semantic:
             # OEXPS -> EXPS
             # OEXPS -> ε
 
-            # other_data aqui é a lista de tipos dos parametros do método que está sendo chamado
+            # other_data aqui é a lista de tipos dos parametros aceitos pelo metodo que está sendo chamado
             if expression.children[0].token.type_ != EMPTY_CHAR:
                 # Aqui garantimos que há pelo menos um parametro, pois EXPS não deriva epsilon
                 if not other_data:
-                    raise Exception("Method called with no parameters, but it requires at least one")
+                    raise Exception("Method does not accept any parameters but parameters were passed")
 
                 self.analyze_expression(expression.children[0], scope_manager, other_data) # EXPS
                 # Não há retorno para EXPS
             
             else:
                 if other_data:
-                    raise Exception("Method called with too few parameters, missing parameters of types: " + ", ".join(other_data))
+                    raise Exception("Method called with fewer parameters than required, missing parameters of types: " + ", ".join(other_data))
                 
             return None # Não há retorno para OEXPS
 
@@ -1349,7 +1354,7 @@ class Semantic:
             # Ao consumir o primeiro parametro, devemos verificar se ele é do tipo correto
 
             if not other_data:
-                # Esgotaram os parametros que o método aceita mas ainda há parametros a serem passados
+                # Esgotaram os parametros que o método aceita mas ainda há parametros a serem analisados
                 raise Exception(f"Method called with too many parameters. All parameters have been passed but there are still {len(expression.children[1].children)} parameters left")
             
             resultado_exp = self.analyze_expression(expression.children[0], scope_manager) # EXP
