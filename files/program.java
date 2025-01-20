@@ -28,7 +28,7 @@ class Main
 	
 }
 
-class A {
+class A extends C {
     int num1;
     int num2;
     int num3;
@@ -45,6 +45,13 @@ class A {
     public B bar() {
         {}
         return new B();
+    }
+
+    public int baz() {
+        {
+
+        }
+        return result;
     }
 }
 

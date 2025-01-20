@@ -1,0 +1,98 @@
+{
+    "A": {
+        "type": "class",
+        "extends": "C",
+        "variables": {
+            "this": {
+                "type": "A"
+            },
+            "num1": {
+                "type": "int"
+            },
+            "num2": {
+                "type": "int"
+            },
+            "num3": {
+                "type": "int"
+            },
+            "result": {
+                "type": "int"
+            }
+        },
+        "methods": {
+            "foo": {
+                "type": "int",
+                "params": {
+                    "p1": {
+                        "type": "int"
+                    },
+                    "p2": {
+                        "type": "int"
+                    },
+                    "p3": {
+                        "type": "int"
+                    }
+                },
+                "variables": {}
+            },
+            "bar": {
+                "type": "B",
+                "params": {},
+                "variables": {}
+            },
+            "baz": {
+                "type": "int",
+                "params": {},
+                "variables": {}
+            }
+        }
+    },
+    "B": {
+        "type": "class",
+        "extends": null,
+        "variables": {
+            "this": {
+                "type": "B"
+            },
+            "a": {
+                "type": "A"
+            },
+            "returnVal": {
+                "type": "int"
+            }
+        },
+        "methods": {
+            "foo": {
+                "type": "int",
+                "params": {},
+                "variables": {}
+            }
+        }
+    },
+    "C": {
+        "type": "class",
+        "extends": null,
+        "variables": {
+            "this": {
+                "type": "A"
+            }
+        },
+        "methods": {
+            "foo": {
+                "type": "int",
+                "params": {
+                    "p1": {
+                        "type": "int"
+                    },
+                    "p2": {
+                        "type": "int"
+                    },
+                    "p3": {
+                        "type": "int"
+                    }
+                },
+                "variables": {}
+            }
+        }
+    }
+}

@@ -298,11 +298,11 @@ class CodeGenerator:
                 local_output.extend(self.cgen(node.children[1], variables, is_function))
             elif first.token.type_ == "<PEXP>":
                 if first.children[0].token.value == "(":
-                    local_output.extend(self.cgen(first.children[1], variables, is_function))
+                    local_output.extend(self.cgen(first.children[1], variables, is_function)) # ( EXP )
                 elif first.children[0].token.type_ == "identifier":
                     name = first.children[0].token.value
                     if not is_function:
-                        local_output.append(f"lw $a0, {list(variables.keys()).index(name) * 4}($sp)")
+                        local_output.append(f"lw $a0, {list(variables.keys()).index(name) * 4}($sp)") 
                     else:
                         local_output.append(f"lw $a0, {list(variables.keys()).index(name) * 4}($fp)")
                 elif first.children[0].token.value == "this":

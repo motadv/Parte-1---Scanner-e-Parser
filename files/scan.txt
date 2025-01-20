@@ -21,6 +21,8 @@ System.out.println | System.out.println
 } | }
 class | class
 A | identifier
+extends | extends
+C | identifier
 { | {
 int | int
 num1 | identifier
@@ -79,6 +81,18 @@ new | new
 B | identifier
 ( | (
 ) | )
+; | ;
+} | }
+public | public
+int | int
+baz | identifier
+( | (
+) | )
+{ | {
+{ | {
+} | }
+return | return
+result | identifier
 ; | ;
 } | }
 } | }
