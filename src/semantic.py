@@ -364,6 +364,7 @@ class Semantic:
                 
                 # Check if identifier is a declared variable
                 try:
+                    scope_manager.print_scopes()
                     scope_manager.get_variable(command.children[0].token.value)
                 except Exception as e:
                     raise Exception(f"Variable '{command.children[0].token.value}' not declared") from e
@@ -529,6 +530,9 @@ class Semantic:
 
             # resultado_rexp_ é None ou um dicionário com o tipo, valor e operador da expressão
             if resultado_rexp_:
+                
+                print(f"resultado_rexp_ in REXP: {resultado_rexp_}")
+                
                 if resultado_rexp_["operator"] == "<":
                     if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                         raise Exception("Invalid operation '<' between non-int values")
@@ -636,9 +640,10 @@ class Semantic:
                 resultado_rexp_ = self.analyze_expression(expression.children[2], scope_manager) # REXP_
 
                 this_operator = expression.children[0].token.value
+                print(f"this_operator on REXP_: {this_operator}")
 
                 if resultado_rexp_:
-                    if resultado_rexp.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
+                    if resultado_rexp_.get("has_identifier", False) or resultado_aexp.get("has_identifier", False):
                         if resultado_rexp_["operator"] == "<":
                             if resultado_aexp["type"] != "int" or resultado_rexp_["type"] != "int":
                                 raise Exception("Invalid operation '<' between non-int values")
@@ -725,9 +730,10 @@ class Semantic:
                     
                 if resultado_aexp.get("has_identifier", False):
                     return {
-                        "type": "boolean",
+                        "type": resultado_aexp["type"],
                         "value": None,
-                        "has_identifier": True
+                        "has_identifier": True,
+                        "operator": this_operator
                     }
                 else:
                     # Simplify children to be just the AEXP -> MEXP -> SEXP -> boolean and REXP_ -> ε
@@ -1239,7 +1245,7 @@ class Semantic:
                 # Não é possível acessar um elemento com [] de um tipo que não seja array
                 if current_type == "int[]":
                     resultado_exp = self.analyze_expression(expression.children[1], scope_manager) # EXP
-                    if resultado_exp != "int":
+                    if resultado_exp.get("type", None) != "int":
                         raise Exception(f"Array access with non-integer index, expected 'int' but got '{resultado_exp}'")
                 else:
                     raise Exception(f"Type '{current_type}' is not an array")
@@ -1408,7 +1414,8 @@ class Semantic:
                 
             elif expression.children[0].token.value == "int":
                 resultado_exp = self.analyze_expression(expression.children[2], scope_manager)
-                if resultado_exp != "int":
+                print(f"Resultado EXP: {resultado_exp} in NEWEXP")
+                if resultado_exp.get("type", None) != "int":
                     raise Exception("Array size must be an integer")
                 
                 return {

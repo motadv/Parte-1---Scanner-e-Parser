@@ -25,6 +25,9 @@ class ScopeManager():
                 return scope[symbol]
         return None
     
+    def print_current_scope(self):
+        print(self.scopes[-1])
+    
 
 class CodeGeneratorWithHeap():
     scopeManager = None
@@ -47,17 +50,18 @@ class CodeGeneratorWithHeap():
     def generate_code(self, node: Node, data):
         if data == None:
             data = {}
+            
+        data = data.copy()
         
         match node.token.type_:
             case "<PROG>":
-                self.code.append(".text")
-                # First generate the code for the classes to have the functions available
-                lclasses = node.children[1]
-                self.generate_code(lclasses, data)
-                
-                # Then generate the code for the main function
+                # Generate the code for the main function
                 main = node.children[0]
                 self.generate_code(main, data)
+                
+                # Generate the code for the classes
+                lclasses = node.children[1]
+                self.generate_code(lclasses, data)
             case "<MAIN>":
                 # Main function declaration
                 self.code.append(".main:")
@@ -65,6 +69,10 @@ class CodeGeneratorWithHeap():
                 cmd = node.children[14]
                 self.generate_code(cmd, data)
                 self.scopeManager.exit_scope()
+                
+                # syscall to end the program
+                self.code.append("li $v0, 10")
+                self.code.append("syscall")
                 
             case "<CLASSE>":
                 class_name = node.children[1].token.value
@@ -96,18 +104,23 @@ class CodeGeneratorWithHeap():
                 
                 # Calculate the size of the activation record
                 activation_record_size = 4 # object address (free $a0)
-                method_params = self.symbol_table[class_name][method_name]["params"]
+                
+                print(f"Generating code for method {method_name} in class {class_name}")
+                
+                method_params = self.symbol_table[class_name]["methods"][method_name]["params"]
                 for param, p_info in method_params.items():
-                    p_info["offset"] = activation_record_size
+                    p_info["offset"] = -activation_record_size
                     self.scopeManager.add_or_modify_symbol(param, p_info)
                     activation_record_size += 4
                 
-                method_variables = self.symbol_table[class_name][method_name]["variables"]
+                method_variables = self.symbol_table[class_name]["methods"][method_name]["variables"]
                 for var, v_info in method_variables.items():
-                    v_info["offset"] = activation_record_size
+                    v_info["offset"] = -activation_record_size
                     self.scopeManager.add_or_modify_symbol(var, v_info)
                     activation_record_size += 4
                 
+                print(f"Activation record size for method {method_name} in class {class_name} is {activation_record_size}")
+                self.scopeManager.print_current_scope()
                 # Generate the method label
                 method_label = self.make_method_label(class_name, method_name)
                 self.code.append(method_label)
@@ -120,11 +133,14 @@ class CodeGeneratorWithHeap():
                 
                 self.code.append("move $fp, $sp") # RA is in the stack, save it in the fp
                 # move the stack pointer to the end of the activation record
-                self.code.append(f"addi $sp, $sp, {activation_record_size}")
+                self.code.append(f"addiu $sp, $sp, {activation_record_size}")
 
+                self.code.append("# Saved the return address")
                 self.code.append("sw $ra, 0($sp)") # Save the return address
+                self.code.append("addiu $sp, $sp, -4") # Move the stack pointer to the next position
                 
-                self.code.append("sw $a0, 0($fp)") # Save the object address
+                # self.code.append("#DEBUG")
+                # self.code.append("sw $a0, 0($fp)") # Save the object address
                 
                 # Initialize the local variables to 0
                 for var, v_info in method_variables.items():
@@ -135,15 +151,18 @@ class CodeGeneratorWithHeap():
                 self.generate_code(method_lcmd, data)
                 
                 # Save the return value
+                self.code.append("# Saving the return value")
                 self.generate_code(node.children[12], data) # EXP saves the return value in $a0
                 
                 # Restore the stack pointer to the previous value
                 # effectively deallocating the activation record
                 
+                self.code.append("# Loaded the return address")
                 self.code.append(f"lw $ra, 4($sp)") # Restore the return address
-                self.code.append("addi $sp, $sp, -4") #? Deallocate the return address
+                self.code.append("addiu $sp, $sp, 4") #? Deallocate the return address
                 
-                self.code.append(f"move $sp, $fp")
+                self.code.append("# Restoring the frame pointer")
+                self.code.append(f"addiu $sp, $sp, {-activation_record_size}") # Deallocate the activation record
                 
                 self.code.append("jr $ra") # Return to the caller
 
@@ -194,11 +213,17 @@ class CodeGeneratorWithHeap():
                         # Assignment to a variable
                         # evaluate the expression
                         self.generate_code(cmd_id.children[1], data) # EXP
+                        self.code.append("# Value to input is in $a0")
+                        # Value to input is in $a0
+                        
                         # get the variable address from the scope
                         var_info = self.scopeManager.get_symbol(var_name)
-                        
+                        self.scopeManager.print_current_scope()
                         if var_info != None:
                             var_offset = var_info["offset"]
+                            
+                            print(f"Storing value in {var_name} at offset {var_offset}")
+                            
                             # store the value in the address
                             self.code.append(f"sw $a0, {var_offset}($fp)")
                             
@@ -211,13 +236,13 @@ class CodeGeneratorWithHeap():
                             for var, v_info in class_variables.items():
                                 if var == var_name:
                                     break
-                                var_offset += 4
+                                var_offset -= 4
                                 
                                 
-                            # Load the object address in $a0
-                            self.code.append("lw $t0, 4($fp)") # Object address
+                            self.code.append("lw $t0, 0($fp)") # Object address
+                            
                             # Store the value in the address
-                            self.code.append(f"sw $a0, {var_offset}($t0)")
+                            self.code.append(f"lw $a0, {var_offset}($t0)")
                         
                         pass
                     elif cmd_id_type == "[":
@@ -231,7 +256,7 @@ class CodeGeneratorWithHeap():
                             self.code.append(f"lw $t0, {var_offset}($fp)")
                             # save it in the stack
                             self.code.append("sw $t0, 0($sp)")
-                            self.code.append("addi $sp, $sp, -4")
+                            self.code.append("addiu $sp, $sp, -4")
                             
                         else:
                             # Variable is a class variable
@@ -241,31 +266,31 @@ class CodeGeneratorWithHeap():
                             for var, v_info in class_variables.items():
                                 if var == var_name:
                                     break
-                                var_offset += 4
+                                var_offset -= 4
                                 
                             # Load the object address in $t0
                             self.code.append("lw $t0, 4($fp)") # Object address
                             # Save the address in the stack
                             self.code.append("sw $t0, 0($sp)")
-                            self.code.append("addi $sp, $sp, -4")
+                            self.code.append("addiu $sp, $sp, -4")
                         
                         # evaluate the expression for the index
                         self.generate_code(cmd_id.children[1], data)
                         # offset the address by 4*index + 4
                         self.code.append("lw $t0, 4($sp)")
-                        self.code.append("addi $sp, $sp, 4") # pop the index
+                        self.code.append("addiu $sp, $sp, 4") # pop the index
                         
                         self.code.append("mul $a0, $a0, 4") # multiply the index by 4
-                        self.code.append("addi $a0, $a0, 4") # Skip array size
+                        self.code.append("addiu $a0, $a0, 4") # Skip array size
                         self.code.append("add $a0, $a0, $t0") # offset the address by 4*index + 4
                         # save the int address in the stack
                         self.code.append("sw $a0, 0($sp)")
-                        self.code.append("addi $sp, $sp, -4")
+                        self.code.append("addiu $sp, $sp, -4")
                         # evaluate the expression for the value
                         self.generate_code(cmd_id.children[3], data) # EXP to be stored
                         # load the address
                         self.code.append("lw $t0, 4($sp)")
-                        self.code.append("addi $sp, $sp, 4")
+                        self.code.append("addiu $sp, $sp, 4")
                         # store the value in the address
                         self.code.append("sw $a0, 0($t0)")         
                             
@@ -291,12 +316,12 @@ class CodeGeneratorWithHeap():
                 if has_and:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     self.generate_code(node.children[1], data) # EXP_
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     
                     # AND operation
                     self.code.append("mul $a0, $a0, $t0")
@@ -306,12 +331,12 @@ class CodeGeneratorWithHeap():
                 if has_and:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     self.generate_code(node.children[2], data)
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     
                     # AND operation
                     self.code.append("mul $a0, $a0, $t0")
@@ -322,14 +347,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[1], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                 if operation == "<":
                     # Compare
                     self.code.append("slt $a0, $t0, $a0")
@@ -344,14 +369,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[2], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                 if operation == "<":
                     # Compare
                     self.code.append("slt $a0, $t0, $a0")
@@ -366,14 +391,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[1], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     if operation == "+":
                         self.code.append("add $a0, $a0, $t0")
                     elif operation == "-":
@@ -385,14 +410,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[2], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     if operation == "+":
                         self.code.append("add $a0, $a0, $t0")
                     elif operation == "-":
@@ -403,14 +428,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[1], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     if operation == "*":
                         self.code.append("mul $a0, $a0, $t0")
                         
@@ -420,14 +445,14 @@ class CodeGeneratorWithHeap():
                 if operation != EMPTY_CHAR:
                     # Save $a0 in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # Evaluate the second expression
                     self.generate_code(node.children[2], data)
                     
                     # Load $a0 from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     if operation == "*":
                         self.code.append("mul $a0, $a0, $t0")
             case "<SEXP>":
@@ -447,18 +472,27 @@ class CodeGeneratorWithHeap():
                     if newexp_first.token.type_ == "int":
                         # Get the size of the array
                         self.generate_code(newexp.children[2], data)
+                        # Save in the stack
+                        self.code.append("sw $a0, 0($sp)")
+                        self.code.append("addiu $sp, $sp, -4")
+                        
                         # Multiply the size by 4
                         self.code.append("mul $a0, $a0, 4")
                         # The first 4 bytes will store the size of the array
-                        self.code.append("addi $a0, $a0, 4")
+                        self.code.append("addiu $a0, $a0, 4")
                         # Allocate the memory
                         self.code.append("li $v0, 9")
                         self.code.append("syscall")
                         # $v0 has the address of the array
                         # Store the size of the array in the first 4 bytes
-                        self.code.append("sw $a0, 0($v0)")
+                        # Load the size from the stack
+                        self.code.append("lw $t0, 4($sp)")
+                        self.code.append("addiu $sp, $sp, 4")
+                        
+                        self.code.append("sw $t0, 0($v0)")
                         # Move the address to $a0
                         self.code.append("move $a0, $v0")
+                        self.code.append(f"# Allocated memory for array")
                         
                     elif newexp_first.token.type_ == "identifier":
                         # Get the class name
@@ -467,6 +501,8 @@ class CodeGeneratorWithHeap():
                         class_size = 0;
                         for var, v_info in self.symbol_table[class_name]["variables"].items():
                             class_size += 4
+                            
+                        print("Allocating memory for class", class_name, "with size", class_size)
                         
                         # Allocate the memory in the heap
                         self.code.append(f"li $v0, 9") # Allocate memory SBRK
@@ -475,8 +511,8 @@ class CodeGeneratorWithHeap():
                         
                         # $v0 has the address of the class
                         # set the first 4 bytes to the class address
-                        self.code.append(f"sw $v0, 0($v0)")
-                        self.code.append("move $a0, $v0")
+                        self.code.append(f"sw $v0, 0($v0)") # Store the address of the class in the first 4 bytes
+                        self.code.append("move $a0, $v0") 
                         
                         # Pass onwards the class name
                         data["class_name"] = class_name
@@ -491,11 +527,13 @@ class CodeGeneratorWithHeap():
                     if pexp_first_child.token.type_ in ["identifier", "this"]:
                         # Get the variable address from the scope
                         var_name = pexp_first_child.token.value
+                        self.code.append(f"# Lookin at the value of {var_name}")
+                        
                         var_info = self.scopeManager.get_symbol(var_name)
                         if var_info == None:
                             # identifier is a class variable
                             # Get the object address in the R.A offset 4
-                            self.code.append("lw $a0, 4($fp)")
+                            self.code.append("lw $a0, 0($fp)")
                             # Find this var_name in the class symbol table and get its index
                             class_name = data["class_name"]
                             class_variables = self.symbol_table[class_name]["variables"]
@@ -503,10 +541,11 @@ class CodeGeneratorWithHeap():
                             for var, v_info in class_variables.items():
                                 if var == var_name:
                                     break
-                                var_offset += 4
+                                var_offset -= 4
                                 
                             # Load the value from the address
-                            self.code.append(f"lw $a0, {var_offset}($a0)")
+                            self.code.append(f"addi $a0, $a0, {var_offset}")
+                            self.code.append(f"lw $a0, 0($a0)")
                             
                         else:
                             # identifier is a method variable or parameter
@@ -527,16 +566,16 @@ class CodeGeneratorWithHeap():
                 elif first_child.token.type_ == "[":
                     # save the address in the stack
                     self.code.append("sw $a0, 0($sp)")
-                    self.code.append("addi $sp, $sp, -4")
+                    self.code.append("addiu $sp, $sp, -4")
                     
                     # evaluate the expression to find the index
                     self.generate_code(node.children[1], data)
                     self.code.append("mul $a0, $a0, 4")
-                    self.code.append("addi $a0, $a0, 4")
+                    self.code.append("addiu $a0, $a0, 4")
                     
                     # load the address from the stack
                     self.code.append("lw $t0, 4($sp)")
-                    self.code.append("addi $sp, $sp, 4")
+                    self.code.append("addiu $sp, $sp, 4")
                     
                     # add the index to the address
                     self.code.append("add $a0, $a0, $t0")
@@ -552,18 +591,21 @@ class CodeGeneratorWithHeap():
                 elif first_child.token.type_ == "identifier":
                     # Get the class name
                     class_name = data["class_name"]
+                    spexp = node.children[2]
                     
                     # Check if this identifier is a method call
                     if node.children[1].children[0].token.type_ == "(":
                         # Is a method call
+                        print(f"Method call in class {class_name} for method {first_child.token.value}")
                         
                         # Save the fp in the stack
                         self.code.append("sw $fp, 0($sp)") # Old fp
-                        self.code.append("addi $sp, $sp, -4")
+                        self.code.append("addiu $sp, $sp, -4")
                         
                         
                         self.code.append("move $fp, $sp") # RA is in the stack, save it in the fp
                         
+                        self.code.append("# Saving object address")
                         self.code.append("sw $a0, 0($fp)") # object address
                         self.code.append("addiu $fp $fp -4") # Move the fp to the first parameter
                         
@@ -576,6 +618,10 @@ class CodeGeneratorWithHeap():
                         
                         # Restore the old frame pointer
                         self.code.append("lw $fp, 4($sp)")
+                        self.code.append("addiu $sp, $sp, 4")
+                        
+                        data["class_name"] = self.symbol_table[class_name]["methods"][first_child.token.value]["type"]
+                        self.generate_code(spexp, data) # SPEXP
                         
                     else:
                         # Is a class variable
@@ -585,7 +631,7 @@ class CodeGeneratorWithHeap():
                         for var, v_info in class_variables.items():
                             if var == first_child.token.value:
                                 break
-                            var_offset += 4
+                            var_offset -= 4
                             
                         # Load the value from the address
                         self.code.append(f"lw $a0, {var_offset}($a0)")
@@ -599,6 +645,7 @@ class CodeGeneratorWithHeap():
             case "<EXPS>":
                 self.generate_code(node.children[0], data) # EXP
                 # Save the value in the R.A. 
+                self.code.append("# Saving a new parameter")
                 self.code.append("sw $a0, 0($fp)")
                 self.code.append("addiu $fp, $fp, -4")
                 
@@ -606,9 +653,10 @@ class CodeGeneratorWithHeap():
                 
             case "<EXPS_>":
                 if node.children[0].token.type_ != EMPTY_CHAR:
-                    self.generate_code(node.children[0], data) # EXPS
+                    self.generate_code(node.children[1], data) # EXPS
             
             case "<CONSTANT>":
+                self.code.append(f"# Loading constant {node.children[0].token.value} into $a0")
                 self.code.append(f"li $a0, {node.children[0].token.value}")
             case _:
                 pass
