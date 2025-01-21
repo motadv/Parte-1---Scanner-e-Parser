@@ -1,0 +1,67 @@
+this_operator on REXP_: <
+resultado_rexp_ in REXP: {'type': 'int', 'value': 1, 'has_identifier': False, 'operator': '<'}
+Scope 0:
+	Fac: {'type': 'class', 'extends': None, 'variables': {'this': {'type': 'Fac'}, 'num_extra': {'type': 'int'}}, 'methods': {'ComputeFac': {'type': 'int', 'params': {'num': {'type': 'int'}}, 'variables': {'num_aux': {'type': 'int'}}}}}
+Scope 1:
+	this: {'type': 'Fac'}
+	num_extra: {'type': 'int'}
+	ComputeFac: {'type': 'int', 'params': {'num': {'type': 'int'}}, 'variables': {'num_aux': {'type': 'int'}}}
+Scope 2:
+	num: {'type': 'int'}
+	num_aux: {'type': 'int'}
+Scope 3:
+Scope 4:
+Scope 0:
+	Fac: {'type': 'class', 'extends': None, 'variables': {'this': {'type': 'Fac'}, 'num_extra': {'type': 'int'}}, 'methods': {'ComputeFac': {'type': 'int', 'params': {'num': {'type': 'int'}}, 'variables': {'num_aux': {'type': 'int'}}}}}
+Scope 1:
+	this: {'type': 'Fac'}
+	num_extra: {'type': 'int'}
+	ComputeFac: {'type': 'int', 'params': {'num': {'type': 'int'}}, 'variables': {'num_aux': {'type': 'int'}}}
+Scope 2:
+	num: {'type': 'int'}
+	num_aux: {'type': 'int'}
+Scope 3:
+Scope 4:
+Received params:  {'num': {'type': 'int'}}
+Current params:  ['int']
+Received params:  {'num': {'type': 'int'}}
+Current params:  ['int']
+{
+    "Fac": {
+        "type": "class",
+        "extends": null,
+        "variables": {
+            "this": {
+                "type": "Fac"
+            },
+            "num_extra": {
+                "type": "int"
+            }
+        },
+        "methods": {
+            "ComputeFac": {
+                "type": "int",
+                "params": {
+                    "num": {
+                        "type": "int"
+                    }
+                },
+                "variables": {
+                    "num_aux": {
+                        "type": "int"
+                    }
+                }
+            }
+        }
+    }
+}
+Allocating memory for class Fac with size 8
+Method call in class Fac for method ComputeFac
+Generating code for method ComputeFac in class Fac
+Activation record size for method ComputeFac in class Fac is 12
+{'num': {'type': 'int', 'offset': -4}, 'num_aux': {'type': 'int', 'offset': -8}}
+{'num': {'type': 'int', 'offset': -4}, 'num_aux': {'type': 'int', 'offset': -8}}
+Storing value in num_aux at offset -8
+{}
+Storing value in num_aux at offset -8
+Code written to files/mars_code.asm
